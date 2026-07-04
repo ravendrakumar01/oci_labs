@@ -1,0 +1,11 @@
+# --- Local .terraform directories (downloaded provider plugins) ---
+**/.terraform/*
+
+# --- Terraform state files (inme aapke infra ki details hoti hain) ---
+*.tfstate
+*.tfstate.*
+
+# --- Sensitive: variable values aur secrets ---
+*.tfvars
+# --- Private keys / credentials ---
+*.pem
