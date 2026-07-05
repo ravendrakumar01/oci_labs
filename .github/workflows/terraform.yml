@@ -1,411 +1,436 @@
 name: 🏗️ Terraform OCI Pipeline
 
 on:
- push:
-   branches: [main]
- pull_request:
-   branches: [main]
+push:
+  branches: [main]
+pull_request:
+  branches: [main]
 
 env:
- TF_VAR_tenancy_ocid: ${{ secrets.OCI_TENANCY_OCID }}
- TF_VAR_user_ocid: ${{ secrets.OCI_USER_OCID }}
- TF_VAR_fingerprint: ${{ secrets.OCI_FINGERPRINT }}
- TF_VAR_region: ${{ secrets.OCI_REGION }}
- TF_VAR_compartment_ocid: ${{ secrets.OCI_COMPARTMENT_OCID }}
- AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
- AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+TF_VAR_tenancy_ocid: ${{ secrets.OCI_TENANCY_OCID }}
+TF_VAR_user_ocid: ${{ secrets.OCI_USER_OCID }}
+TF_VAR_fingerprint: ${{ secrets.OCI_FINGERPRINT }}
+TF_VAR_region: ${{ secrets.OCI_REGION }}
+TF_VAR_compartment_ocid: ${{ secrets.OCI_COMPARTMENT_OCID }}
+AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
 jobs:
- # ═══════════════════════════════════════════════════════
- # STAGE 1: Lint & Validate
- # ═══════════════════════════════════════════════════════
- validate:
-   name: 🔎 Lint & Validate
-   runs-on: ubuntu-latest
-   steps:
-     - name: ⬇️ Checkout Code
-       uses: actions/checkout@v4
+# ═══════════════════════════════════════════════════════
+# STAGE 1: Lint & Validate
+# ═══════════════════════════════════════════════════════
+validate:
+  name: 🔎 Lint & Validate
+  runs-on: ubuntu-latest
+  steps:
+    - name: ⬇️ Checkout Code
+      uses: actions/checkout@v4
 
-     - name: ⚙️ Setup Terraform
-       uses: hashicorp/setup-terraform@v3
-       with:
-         terraform_version: 1.5.7
+    - name: ⚙️ Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.5.7
+        terraform_wrapper: false
 
-     - name: 🔑 Configure OCI API Key
-       run: |
-         mkdir -p ~/.oci
-         echo "${{ secrets.OCI_PRIVATE_KEY }}" > ~/.oci/oci_api_key.pem
-         chmod 600 ~/.oci/oci_api_key.pem
+    - name: 🔑 Configure OCI API Key
+      run: |
+        mkdir -p ~/.oci
+        echo "${{ secrets.OCI_PRIVATE_KEY }}" > ~/.oci/oci_api_key.pem
+        chmod 600 ~/.oci/oci_api_key.pem
 
-     - name: 📦 Terraform Init
-       run: terraform init
+    - name: 📦 Terraform Init
+      run: terraform init
 
-     - name: 📐 Terraform Format Check
-       id: fmt
-       run: terraform fmt -check -diff
-       continue-on-error: true
+    - name: 📐 Terraform Format Check
+      id: fmt
+      run: terraform fmt -check -diff
+      continue-on-error: true
 
-     - name: ✅ Terraform Validate
-       id: validate
-       run: terraform validate -no-color
+    - name: ✅ Terraform Validate
+      id: validate
+      run: terraform validate -no-color
 
-     - name: 🔒 Security Scan (tfsec)
-       uses: aquasecurity/tfsec-action@v1.0.3
-       with:
-         soft_fail: true
+    - name: 🔒 Security Scan (tfsec)
+      uses: aquasecurity/tfsec-action@v1.0.3
+      with:
+        soft_fail: true
 
-     - name: 📊 Validation Summary
-       if: always()
-       run: |
-         echo "## 🔎 Validation & Security Results" >> $GITHUB_STEP_SUMMARY
-         echo "" >> $GITHUB_STEP_SUMMARY
-         echo "| Check | Status | Details |" >> $GITHUB_STEP_SUMMARY
-         echo "|-------|--------|---------|" >> $GITHUB_STEP_SUMMARY
-         echo "| 📐 Format | ${{ steps.fmt.outcome == 'success' && '✅ Passed' || '⚠️ Needs formatting' }} | \`terraform fmt -check\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| ✅ Validate | ${{ steps.validate.outcome == 'success' && '✅ Passed' || '❌ Failed' }} | \`terraform validate\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| 🔒 Security | ✅ Scanned | \`tfsec\` |" >> $GITHUB_STEP_SUMMARY
-         echo "" >> $GITHUB_STEP_SUMMARY
-         echo "---" >> $GITHUB_STEP_SUMMARY
-         echo "" >> $GITHUB_STEP_SUMMARY
-         echo "| 📋 Info | 📝 Value |" >> $GITHUB_STEP_SUMMARY
-         echo "|---------|----------|" >> $GITHUB_STEP_SUMMARY
-         echo "| **🧑 Actor** | \`${{ github.actor }}\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **🌿 Branch** | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **📌 Commit** | [\`$(echo ${{ github.sha }} | cut -c1-7)\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |" >> $GITHUB_STEP_SUMMARY
-         echo "| **📅 Date** | \`$(date -u '+%Y-%m-%d %H:%M UTC')\` |" >> $GITHUB_STEP_SUMMARY
+    - name: 📊 Validation Summary
+      if: always()
+      run: |
+        echo "## 🔎 Validation & Security Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Check | Status | Details |" >> $GITHUB_STEP_SUMMARY
+        echo "|-------|--------|---------|" >> $GITHUB_STEP_SUMMARY
+        echo "| 📐 Format | ${{ steps.fmt.outcome == 'success' && '✅ Passed' || '⚠️ Needs formatting' }} | \`terraform fmt -check\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| ✅ Validate | ${{ steps.validate.outcome == 'success' && '✅ Passed' || '❌ Failed' }} | \`terraform validate\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| 🔒 Security | ✅ Scanned | \`tfsec\` |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "---" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| 📋 Info | 📝 Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|---------|----------|" >> $GITHUB_STEP_SUMMARY
+        echo "| **🧑 Actor** | \`${{ github.actor }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| **🌿 Branch** | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| **📌 Commit** | [\`$(echo ${{ github.sha }} | cut -c1-7)\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |" >> $GITHUB_STEP_SUMMARY
+        echo "| **📅 Date** | \`$(TZ='Asia/Kolkata' date '+%Y-%m-%d %H:%M IST')\` |" >> $GITHUB_STEP_SUMMARY
 
- # ═══════════════════════════════════════════════════════
- # STAGE 2: Terraform Plan
- # ═══════════════════════════════════════════════════════
- plan:
-   name: 📝 Terraform Plan
-   runs-on: ubuntu-latest
-   needs: validate
-   steps:
-     - name: ⬇️ Checkout Code
-       uses: actions/checkout@v4
+# ═══════════════════════════════════════════════════════
+# STAGE 2: Terraform Plan
+# ═══════════════════════════════════════════════════════
+plan:
+  name: 📝 Terraform Plan
+  runs-on: ubuntu-latest
+  needs: validate
+  steps:
+    - name: ⬇️ Checkout Code
+      uses: actions/checkout@v4
 
-     - name: ⚙️ Setup Terraform
-       uses: hashicorp/setup-terraform@v3
-       with:
-         terraform_version: 1.5.7
+    - name: ⚙️ Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.5.7
+        terraform_wrapper: false
 
-     - name: 🔑 Configure OCI API Key
-       run: |
-         mkdir -p ~/.oci
-         echo "${{ secrets.OCI_PRIVATE_KEY }}" > ~/.oci/oci_api_key.pem
-         chmod 600 ~/.oci/oci_api_key.pem
+    - name: 🔑 Configure OCI API Key
+      run: |
+        mkdir -p ~/.oci
+        echo "${{ secrets.OCI_PRIVATE_KEY }}" > ~/.oci/oci_api_key.pem
+        chmod 600 ~/.oci/oci_api_key.pem
 
-     - name: 📦 Terraform Init
-       run: terraform init
+    - name: 📦 Terraform Init
+      run: terraform init
 
-     - name: 📝 Terraform Plan
-       id: plan
-       run: terraform plan -no-color
-       continue-on-error: true
-       env:
-         TF_VAR_private_key_path: ~/.oci/oci_api_key.pem
+    - name: 📝 Terraform Plan
+      id: plan
+      run: |
+        set +e
+        terraform plan -no-color 2>&1 | tee /tmp/plan_output.txt
+        EXITCODE=$?
+        echo "exitcode=$EXITCODE" >> $GITHUB_OUTPUT
+        exit $EXITCODE
+      continue-on-error: true
+      env:
+        TF_VAR_private_key_path: ~/.oci/oci_api_key.pem
 
-     - name: 📊 Plan Summary
-       if: always()
-       run: |
-         echo "## 📝 Terraform Plan Results" >> $GITHUB_STEP_SUMMARY
-         echo "" >> $GITHUB_STEP_SUMMARY
-         echo "| 📋 Item | 📝 Details |" >> $GITHUB_STEP_SUMMARY
-         echo "|---------|----------|" >> $GITHUB_STEP_SUMMARY
-         echo "| **🧑 Triggered By** | \`${{ github.actor }}\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **🌿 Branch** | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **📌 Commit** | [\`$(echo ${{ github.sha }} | cut -c1-7)\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |" >> $GITHUB_STEP_SUMMARY
-         echo "| **📅 Date** | \`$(date -u '+%Y-%m-%d %H:%M UTC')\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **📝 Plan Status** | ${{ steps.plan.outcome == 'success' && '✅ Success — No errors' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-         echo "" >> $GITHUB_STEP_SUMMARY
-         echo "---" >> $GITHUB_STEP_SUMMARY
-         echo "" >> $GITHUB_STEP_SUMMARY
-         echo "<details><summary>📋 Click to see full Terraform Plan output</summary>" >> $GITHUB_STEP_SUMMARY
-         echo "" >> $GITHUB_STEP_SUMMARY
-         echo '```hcl' >> $GITHUB_STEP_SUMMARY
-         echo "${{ steps.plan.outputs.stdout }}" >> $GITHUB_STEP_SUMMARY
-         echo '```' >> $GITHUB_STEP_SUMMARY
-         echo "" >> $GITHUB_STEP_SUMMARY
-         echo "</details>" >> $GITHUB_STEP_SUMMARY
+    - name: 📊 Plan Summary
+      if: always()
+      run: |
+        PLAN_OUTPUT=$(cat /tmp/plan_output.txt 2>/dev/null || echo "No output captured")
+        PLAN_SUMMARY=$(echo "$PLAN_OUTPUT" | grep -E "Plan:|No changes" | head -1 || echo "Check logs")
+        
+        echo "## 📝 Terraform Plan Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| 📋 Item | 📝 Details |" >> $GITHUB_STEP_SUMMARY
+        echo "|---------|----------|" >> $GITHUB_STEP_SUMMARY
+        echo "| **🧑 Triggered By** | \`${{ github.actor }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| **🌿 Branch** | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| **📌 Commit** | [\`$(echo ${{ github.sha }} | cut -c1-7)\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |" >> $GITHUB_STEP_SUMMARY
+        echo "| **📅 Date** | \`$(TZ='Asia/Kolkata' date '+%Y-%m-%d %H:%M IST')\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| **📝 Plan Status** | ${{ steps.plan.outcome == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| **📊 Summary** | \`$PLAN_SUMMARY\` |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "---" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "<details><summary>📋 Click to see full Terraform Plan output</summary>" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo '```hcl' >> $GITHUB_STEP_SUMMARY
+        echo "$PLAN_OUTPUT" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "</details>" >> $GITHUB_STEP_SUMMARY
 
-     - name: 💬 Comment Plan on PR
-       if: github.event_name == 'pull_request'
-       uses: actions/github-script@v7
-       with:
-         github-token: ${{ secrets.GITHUB_TOKEN }}
-         script: |
-           const planOutput = `${{ steps.plan.outputs.stdout }}`;
-           const truncated = planOutput.length > 60000 
-             ? planOutput.substring(0, 60000) + "\n\n... (truncated)" 
-             : planOutput;
-           
-           const body = `## 🏗️ Terraform Plan — Pull Request Review
-           
-           **🌿 Branch:** \`${{ github.head_ref }}\` → \`${{ github.base_ref }}\`
-           **🧑 Author:** @${{ github.actor }}
-           **📅 Date:** \`${new Date().toISOString().slice(0, 16)} UTC\`
-           
-           ---
-           
-           ### 📊 Results
-           
-           | Step | Status |
-           |------|--------|
-           | 📐 Format | ${{ steps.fmt.outcome == 'success' && '✅' || '⚠️' }} |
-           | ✅ Validate | ✅ |
-           | 📝 Plan | ${{ steps.plan.outcome == 'success' && '✅' || '❌' }} |
-           
-           ---
-           
-           <details><summary>📋 Show Full Plan Output</summary>
-           
-           \`\`\`hcl
-           ${truncated}
-           \`\`\`
-           
-           </details>
-           
-           ---
-           > 🤖 *Auto-generated by Terraform OCI Pipeline*
-           > 💡 *Merge this PR to trigger deployment to DEV environment*`;
-           
-           // Find existing bot comment and update, or create new
-           const { data: comments } = await github.rest.issues.listComments({
-             owner: context.repo.owner,
-             repo: context.repo.repo,
-             issue_number: context.issue.number,
-           });
-           
-           const botComment = comments.find(c => c.body.includes('Terraform Plan — Pull Request Review'));
-           
-           if (botComment) {
-             await github.rest.issues.updateComment({
-               owner: context.repo.owner,
-               repo: context.repo.repo,
-               comment_id: botComment.id,
-               body: body
-             });
-           } else {
-             await github.rest.issues.createComment({
-               owner: context.repo.owner,
-               repo: context.repo.repo,
-               issue_number: context.issue.number,
-               body: body
-             });
-           }
+    - name: 💬 Comment Plan on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const fs = require('fs');
+          let planOutput = '';
+          try {
+            planOutput = fs.readFileSync('/tmp/plan_output.txt', 'utf8');
+          } catch (e) {
+            planOutput = 'Plan output not available';
+          }
+          const truncated = planOutput.length > 60000 
+            ? planOutput.substring(0, 60000) + "\n\n... (truncated)" 
+            : planOutput;
+          
+          const istDate = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+          
+          const body = `## 🏗️ Terraform Plan — Pull Request Review
+          
+          **🌿 Branch:** \`${{ github.head_ref }}\` → \`${{ github.base_ref }}\`
+          **🧑 Author:** @${{ github.actor }}
+          **📅 Date:** \`${istDate} IST\`
+          
+          ---
+          
+          ### 📊 Results
+          
+          | Step | Status |
+          |------|--------|
+          | 📐 Format | ${{ steps.fmt.outcome == 'success' && '✅' || '⚠️' }} |
+          | ✅ Validate | ✅ |
+          | 📝 Plan | ${{ steps.plan.outcome == 'success' && '✅' || '❌' }} |
+          
+          ---
+          
+          <details><summary>📋 Show Full Plan Output</summary>
+          
+          \`\`\`hcl
+          ${truncated}
+          \`\`\`
+          
+          </details>
+          
+          ---
+          > 🤖 *Auto-generated by Terraform OCI Pipeline*
+          > 💡 *Merge this PR to trigger deployment to DEV environment*`;
+          
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+          
+          const botComment = comments.find(c => c.body.includes('Terraform Plan — Pull Request Review'));
+          
+          if (botComment) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: botComment.id,
+              body: body
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
+          }
 
-     - name: ❌ Plan Status Check
-       if: steps.plan.outcome == 'failure'
-       run: exit 1
+    - name: ❌ Plan Status Check
+      if: steps.plan.outcome == 'failure'
+      run: exit 1
 
- # ═══════════════════════════════════════════════════════
- # STAGE 3: Terraform Apply (with Approval Gate)
- # ═══════════════════════════════════════════════════════
- apply:
-   name: 🚀 Terraform Apply
-   runs-on: ubuntu-latest
-   needs: plan
-   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-   environment: DEV
-   steps:
-     - name: ⬇️ Checkout Code
-       uses: actions/checkout@v4
+# ═══════════════════════════════════════════════════════
+# STAGE 3: Terraform Apply (with Approval Gate)
+# ═══════════════════════════════════════════════════════
+apply:
+  name: 🚀 Terraform Apply
+  runs-on: ubuntu-latest
+  needs: plan
+  if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  environment: DEV
+  steps:
+    - name: ⬇️ Checkout Code
+      uses: actions/checkout@v4
 
-     - name: ⚙️ Setup Terraform
-       uses: hashicorp/setup-terraform@v3
-       with:
-         terraform_version: 1.5.7
+    - name: ⚙️ Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.5.7
+        terraform_wrapper: false
 
-     - name: 🔑 Configure OCI API Key
-       run: |
-         mkdir -p ~/.oci
-         echo "${{ secrets.OCI_PRIVATE_KEY }}" > ~/.oci/oci_api_key.pem
-         chmod 600 ~/.oci/oci_api_key.pem
+    - name: 🔑 Configure OCI API Key
+      run: |
+        mkdir -p ~/.oci
+        echo "${{ secrets.OCI_PRIVATE_KEY }}" > ~/.oci/oci_api_key.pem
+        chmod 600 ~/.oci/oci_api_key.pem
 
-     - name: 📦 Terraform Init
-       run: terraform init
+    - name: 📦 Terraform Init
+      run: terraform init
 
-     - name: 🚀 Terraform Apply
-       id: apply
-       run: terraform apply -auto-approve -no-color
-       env:
-         TF_VAR_private_key_path: ~/.oci/oci_api_key.pem
+    - name: 🚀 Terraform Apply
+      id: apply
+      run: |
+        set +e
+        terraform apply -auto-approve -no-color 2>&1 | tee /tmp/apply_output.txt
+        EXITCODE=$?
+        echo "exitcode=$EXITCODE" >> $GITHUB_OUTPUT
+        exit $EXITCODE
+      env:
+        TF_VAR_private_key_path: ~/.oci/oci_api_key.pem
 
-     - name: 📊 Deployment Summary
-       if: always()
-       run: |
-         echo "## 🚀 Deployment Report" >> $GITHUB_STEP_SUMMARY
-         echo "" >> $GITHUB_STEP_SUMMARY
-         echo "### 📋 Deployment Details" >> $GITHUB_STEP_SUMMARY
-         echo "" >> $GITHUB_STEP_SUMMARY
-         echo "| 📋 Item | 📝 Details |" >> $GITHUB_STEP_SUMMARY
-         echo "|---------|----------|" >> $GITHUB_STEP_SUMMARY
-         echo "| **🌍 Environment** | \`DEV\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **☁️ Cloud** | Oracle Cloud Infrastructure (OCI) |" >> $GITHUB_STEP_SUMMARY
-         echo "| **🧑 Deployed By** | \`${{ github.actor }}\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **📌 Commit** | [\`$(echo ${{ github.sha }} | cut -c1-7)\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |" >> $GITHUB_STEP_SUMMARY
-         echo "| **📅 Date** | \`$(date -u '+%Y-%m-%d %H:%M UTC')\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **🏷️ Status** | ${{ steps.apply.outcome == 'success' && '✅ **DEPLOYED SUCCESSFULLY**' || '❌ **DEPLOYMENT FAILED**' }} |" >> $GITHUB_STEP_SUMMARY
-         echo "" >> $GITHUB_STEP_SUMMARY
-         echo "---" >> $GITHUB_STEP_SUMMARY
-         echo "" >> $GITHUB_STEP_SUMMARY
-         if [ "${{ steps.apply.outcome }}" == "success" ]; then
-           echo "### ✅ Infrastructure Deployed!" >> $GITHUB_STEP_SUMMARY
-           echo "" >> $GITHUB_STEP_SUMMARY
-           echo "> 🎉 All resources have been successfully deployed to the **DEV** environment." >> $GITHUB_STEP_SUMMARY
-           echo "" >> $GITHUB_STEP_SUMMARY
-           echo "<details><summary>📦 Apply Output</summary>" >> $GITHUB_STEP_SUMMARY
-           echo "" >> $GITHUB_STEP_SUMMARY
-           echo '```' >> $GITHUB_STEP_SUMMARY
-           echo "${{ steps.apply.outputs.stdout }}" >> $GITHUB_STEP_SUMMARY
-           echo '```' >> $GITHUB_STEP_SUMMARY
-           echo "</details>" >> $GITHUB_STEP_SUMMARY
-         else
-           echo "### ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
-           echo "" >> $GITHUB_STEP_SUMMARY
-           echo "> ⚠️ Terraform apply failed. Check the logs above for details." >> $GITHUB_STEP_SUMMARY
-           echo "" >> $GITHUB_STEP_SUMMARY
-           echo "<details><summary>🔴 Error Output</summary>" >> $GITHUB_STEP_SUMMARY
-           echo "" >> $GITHUB_STEP_SUMMARY
-           echo '```' >> $GITHUB_STEP_SUMMARY
-           echo "${{ steps.apply.outputs.stderr }}" >> $GITHUB_STEP_SUMMARY
-           echo '```' >> $GITHUB_STEP_SUMMARY
-           echo "</details>" >> $GITHUB_STEP_SUMMARY
-         fi
+    - name: 📊 Parse Apply Output
+      id: parse
+      if: always()
+      run: |
+        APPLY_OUTPUT=$(cat /tmp/apply_output.txt 2>/dev/null || echo "No output captured")
+        
+        # Get summary line — use heredoc to avoid special char issues
+        SUMMARY_LINE=$(echo "$APPLY_OUTPUT" | grep -E "Apply complete|No changes" | head -1 || echo "Check logs for details")
+        echo "summary<<EOF" >> $GITHUB_OUTPUT
+        echo "$SUMMARY_LINE" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+        # Extract created resources
+        CREATED=$(echo "$APPLY_OUTPUT" | grep "Creation complete" | grep -oP 'oci_\w+\.\w+' | sort -u || true)
+        if [ -z "$CREATED" ]; then CREATED="None"; fi
+        echo "created<<EOF" >> $GITHUB_OUTPUT
+        echo "$CREATED" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+        # Extract updated resources
+        UPDATED=$(echo "$APPLY_OUTPUT" | grep "Modifications complete" | grep -oP 'oci_\w+\.\w+' | sort -u || true)
+        if [ -z "$UPDATED" ]; then UPDATED="None"; fi
+        echo "updated<<EOF" >> $GITHUB_OUTPUT
+        echo "$UPDATED" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+        # Extract destroyed resources
+        DESTROYED=$(echo "$APPLY_OUTPUT" | grep "Destruction complete" | grep -oP 'oci_\w+\.\w+' | sort -u || true)
+        if [ -z "$DESTROYED" ]; then DESTROYED="None"; fi
+        echo "destroyed<<EOF" >> $GITHUB_OUTPUT
+        echo "$DESTROYED" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+        # IST timestamp
+        IST_TIME=$(TZ='Asia/Kolkata' date '+%Y-%m-%d %H:%M IST')
+        echo "ist_time<<EOF" >> $GITHUB_OUTPUT
+        echo "$IST_TIME" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
 
-     # ═══════════════════════════════════════════
-     # 📧 Email Notification after Apply
-     # ═══════════════════════════════════════════
-     - name: 📧 Send Email Notification (Success)
-       if: steps.apply.outcome == 'success'
-       uses: dawidd6/action-send-mail@v3
-       with:
-         server_address: smtp.gmail.com
-         server_port: 587
-         username: ${{ secrets.EMAIL_USERNAME }}
-         password: ${{ secrets.EMAIL_PASSWORD }}
-         subject: "✅ Terraform Deployed — DEV Environment"
-         to: ${{ secrets.NOTIFY_EMAIL }}
-         from: "Terraform Pipeline <${{ secrets.EMAIL_USERNAME }}>"
-         html_body: |
-           <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden;">
-             
-             <!-- Header -->
-             <div style="background: linear-gradient(135deg, #10b981, #059669); padding: 30px; text-align: center;">
-               <h1 style="color: white; margin: 0; font-size: 24px;">✅ Deployment Successful</h1>
-               <p style="color: #d1fae5; margin: 8px 0 0 0; font-size: 14px;">Terraform OCI Pipeline</p>
-             </div>
-             
-             <!-- Body -->
-             <div style="padding: 30px;">
-               <h2 style="color: #1f2937; margin-top: 0;">📋 Deployment Summary</h2>
-               
-               <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-                 <tr style="border-bottom: 1px solid #f3f4f6;">
-                   <td style="padding: 12px; font-weight: bold; color: #6b7280;">🌍 Environment</td>
-                   <td style="padding: 12px;"><span style="background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 20px; font-weight: bold;">DEV</span></td>
-                 </tr>
-                 <tr style="border-bottom: 1px solid #f3f4f6;">
-                   <td style="padding: 12px; font-weight: bold; color: #6b7280;">☁️ Cloud</td>
-                   <td style="padding: 12px;">Oracle Cloud (OCI)</td>
-                 </tr>
-                 <tr style="border-bottom: 1px solid #f3f4f6;">
-                   <td style="padding: 12px; font-weight: bold; color: #6b7280;">👤 Deployed By</td>
-                   <td style="padding: 12px;">${{ github.actor }}</td>
-                 </tr>
-                 <tr style="border-bottom: 1px solid #f3f4f6;">
-                   <td style="padding: 12px; font-weight: bold; color: #6b7280;">📌 Commit</td>
-                   <td style="padding: 12px;"><code>${{ github.sha }}</code></td>
-                 </tr>
-                 <tr style="border-bottom: 1px solid #f3f4f6;">
-                   <td style="padding: 12px; font-weight: bold; color: #6b7280;">🌿 Branch</td>
-                   <td style="padding: 12px;"><code>${{ github.ref_name }}</code></td>
-                 </tr>
-                 <tr>
-                   <td style="padding: 12px; font-weight: bold; color: #6b7280;">🏷️ Status</td>
-                   <td style="padding: 12px;"><span style="color: #059669; font-weight: bold; font-size: 16px;">✅ SUCCESS</span></td>
-                 </tr>
-               </table>
-               
-               <!-- Action Button -->
-               <div style="text-align: center; margin: 30px 0;">
-                 <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" 
-                    style="background: #2563eb; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">
-                   🔗 View Pipeline Run
-                 </a>
-               </div>
-             </div>
-             
-             <!-- Footer -->
-             <div style="background: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-               <p style="color: #9ca3af; margin: 0; font-size: 12px;">
-                 🤖 Auto-generated by GitHub Actions | Terraform OCI Pipeline
-               </p>
-             </div>
-           </div>
+    - name: 📊 Deployment Summary
+      if: always()
+      run: |
+        echo "## 🚀 Deployment Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| 📋 Item | 📝 Details |" >> $GITHUB_STEP_SUMMARY
+        echo "|---------|----------|" >> $GITHUB_STEP_SUMMARY
+        echo "| **🌍 Environment** | \`DEV\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| **☁️ Cloud** | Oracle Cloud (OCI) |" >> $GITHUB_STEP_SUMMARY
+        echo "| **🧑 Deployed By** | \`${{ github.actor }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| **📌 Commit** | [\`$(echo ${{ github.sha }} | cut -c1-7)\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |" >> $GITHUB_STEP_SUMMARY
+        echo "| **📅 Date (IST)** | \`${{ steps.parse.outputs.ist_time }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| **🏷️ Status** | ${{ steps.apply.outcome == 'success' && '✅ **DEPLOYED**' || '❌ **FAILED**' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📦 Resource Changes" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Action | Resources |" >> $GITHUB_STEP_SUMMARY
+        echo "|--------|-----------|" >> $GITHUB_STEP_SUMMARY
+        echo "| ➕ Created | \`${{ steps.parse.outputs.created }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| 🔄 Updated | \`${{ steps.parse.outputs.updated }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| 🗑️ Destroyed | \`${{ steps.parse.outputs.destroyed }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "> **Summary:** ${{ steps.parse.outputs.summary }}" >> $GITHUB_STEP_SUMMARY
 
-     - name: 📧 Send Email Notification (Failure)
-       if: steps.apply.outcome == 'failure'
-       uses: dawidd6/action-send-mail@v3
-       with:
-         server_address: smtp.gmail.com
-         server_port: 587
-         username: ${{ secrets.EMAIL_USERNAME }}
-         password: ${{ secrets.EMAIL_PASSWORD }}
-         subject: "❌ Terraform FAILED — DEV Environment"
-         to: ${{ secrets.NOTIFY_EMAIL }}
-         from: "Terraform Pipeline <${{ secrets.EMAIL_USERNAME }}>"
-         html_body: |
-           <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden;">
-             
-             <!-- Header -->
-             <div style="background: linear-gradient(135deg, #ef4444, #dc2626); padding: 30px; text-align: center;">
-               <h1 style="color: white; margin: 0; font-size: 24px;">❌ Deployment Failed</h1>
-               <p style="color: #fecaca; margin: 8px 0 0 0; font-size: 14px;">Terraform OCI Pipeline</p>
-             </div>
-             
-             <!-- Body -->
-             <div style="padding: 30px;">
-               <h2 style="color: #1f2937; margin-top: 0;">⚠️ Failure Details</h2>
-               
-               <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-                 <tr style="border-bottom: 1px solid #f3f4f6;">
-                   <td style="padding: 12px; font-weight: bold; color: #6b7280;">🌍 Environment</td>
-                   <td style="padding: 12px;"><span style="background: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 20px; font-weight: bold;">DEV</span></td>
-                 </tr>
-                 <tr style="border-bottom: 1px solid #f3f4f6;">
-                   <td style="padding: 12px; font-weight: bold; color: #6b7280;">👤 Triggered By</td>
-                   <td style="padding: 12px;">${{ github.actor }}</td>
-                 </tr>
-                 <tr style="border-bottom: 1px solid #f3f4f6;">
-                   <td style="padding: 12px; font-weight: bold; color: #6b7280;">📌 Commit</td>
-                   <td style="padding: 12px;"><code>${{ github.sha }}</code></td>
-                 </tr>
-                 <tr>
-                   <td style="padding: 12px; font-weight: bold; color: #6b7280;">🏷️ Status</td>
-                   <td style="padding: 12px;"><span style="color: #dc2626; font-weight: bold; font-size: 16px;">❌ FAILED</span></td>
-                 </tr>
-               </table>
-               
-               <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 20px 0;">
-                 <p style="color: #991b1b; margin: 0; font-weight: bold;">🔴 Action Required</p>
-                 <p style="color: #7f1d1d; margin: 8px 0 0 0;">Please check the pipeline logs for error details and fix the issue.</p>
-               </div>
-               
-               <!-- Action Button -->
-               <div style="text-align: center; margin: 30px 0;">
-                 <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" 
-                    style="background: #dc2626; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">
-                   🔗 View Error Logs
-                 </a>
-               </div>
-             </div>
-             
-             <!-- Footer -->
-             <div style="background: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-               <p style="color: #9ca3af; margin: 0; font-size: 12px;">
-                 🤖 Auto-generated by GitHub Actions | Terraform OCI Pipeline
-               </p>
-             </div>
-           </div>
+    # ═══════════════════════════════════════════
+    # 📧 Email Notification — Success
+    # ═══════════════════════════════════════════
+    - name: 📧 Send Email (Success)
+      if: steps.apply.outcome == 'success'
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 587
+        username: ${{ secrets.EMAIL_USERNAME }}
+        password: ${{ secrets.EMAIL_PASSWORD }}
+        subject: "✅ Terraform Deployed — DEV | ${{ steps.parse.outputs.ist_time }}"
+        to: ${{ secrets.NOTIFY_EMAIL }}
+        from: "Terraform Pipeline <${{ secrets.EMAIL_USERNAME }}>"
+        html_body: |
+          <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 650px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #10b981, #059669); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0; font-size: 24px;">✅ Deployment Successful</h1>
+              <p style="color: #d1fae5; margin: 8px 0 0 0; font-size: 14px;">Terraform OCI Pipeline — DEV Environment</p>
+            </div>
+            <div style="padding: 30px;">
+              <h2 style="color: #1f2937; margin-top: 0;">📋 Deployment Summary</h2>
+              <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                <tr style="border-bottom: 1px solid #f3f4f6;">
+                  <td style="padding: 12px; font-weight: bold; color: #6b7280;">🌍 Environment</td>
+                  <td style="padding: 12px;"><span style="background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 20px; font-weight: bold;">DEV</span></td>
+                </tr>
+                <tr style="border-bottom: 1px solid #f3f4f6;">
+                  <td style="padding: 12px; font-weight: bold; color: #6b7280;">☁️ Cloud</td>
+                  <td style="padding: 12px;">Oracle Cloud (OCI)</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #f3f4f6;">
+                  <td style="padding: 12px; font-weight: bold; color: #6b7280;">👤 Deployed By</td>
+                  <td style="padding: 12px;">${{ github.actor }}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #f3f4f6;">
+                  <td style="padding: 12px; font-weight: bold; color: #6b7280;">📌 Commit</td>
+                  <td style="padding: 12px;"><code>${{ github.sha }}</code></td>
+                </tr>
+                <tr style="border-bottom: 1px solid #f3f4f6;">
+                  <td style="padding: 12px; font-weight: bold; color: #6b7280;">🌿 Branch</td>
+                  <td style="padding: 12px;"><code>${{ github.ref_name }}</code></td>
+                </tr>
+                <tr style="border-bottom: 1px solid #f3f4f6;">
+                  <td style="padding: 12px; font-weight: bold; color: #6b7280;">📅 Date & Time</td>
+                  <td style="padding: 12px;"><strong>${{ steps.parse.outputs.ist_time }}</strong></td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; font-weight: bold; color: #6b7280;">🏷️ Status</td>
+                  <td style="padding: 12px;"><span style="color: #059669; font-weight: bold; font-size: 16px;">✅ SUCCESS</span></td>
+                </tr>
+              </table>
+              <h2 style="color: #1f2937; margin-top: 30px;">📦 Resource Changes</h2>
+              <table style="width: 100%; border-collapse: collapse; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <thead>
+                  <tr style="background: #f9fafb;">
+                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">Action</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">Resources</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="border-bottom: 1px solid #f3f4f6;">
+                    <td style="padding: 12px;"><span style="background: #d1fae5; color: #065f46; padding: 4px 10px; border-radius: 4px; font-weight: bold;">➕ Created</span></td>
+                    <td style="padding: 12px; font-family: monospace; font-size: 13px;">${{ steps.parse.outputs.created }}</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #f3f4f6;">
+                    <td style="padding: 12px;"><span style="background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-weight: bold;">🔄 Updated</span></td>
+                    <td style="padding: 12px; font-family: monospace; font-size: 13px;">${{ steps.parse.outputs.updated }}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 12px;"><span style="background: #fee2e2; color: #991b1b; padding: 4px 10px; border-radius: 4px; font-weight: bold;">🗑️ Destroyed</span></td>
+                    <td style="padding: 12px; font-family: monospace; font-size: 13px;">${{ steps.parse.outputs.destroyed }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+                <p style="color: #065f46; margin: 0; font-weight: bold;">📊 Summary</p>
+                <p style="color: #047857; margin: 8px 0 0 0;">${{ steps.parse.outputs.summary }}</p>
+              </div>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" 
+                   style="background: #2563eb; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">
+                  🔗 View Full Pipeline Run
+                </a>
+              </div>
+            </div>
+            <div style="background: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+              <p style="color: #9ca3af; margin: 0; font-size: 12px;">
+                🤖 Auto-generated by GitHub Actions | Terraform OCI Pipeline | ${{ steps.parse.outputs.ist_time }}
+              </p>
+            </div>
+          </div>
+
+    # ═══════════════════════════════════════════
+    # 📧 Email Notification — Failure
+    # ═══════════════════════════════════════════
+    - name: 📧 Send Email (Failure)
+      if: steps.apply.outcome == 'failure'
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 587
+        username: ${{ secrets.EMAIL_USERNAME }}
+        password: ${{ secrets.EMAIL_PASSWORD }}
+        subject: "❌ Terraform FAILED — DEV | ${{ steps.parse.outputs.ist_time }}"
+        to: ${{ secrets.NOTIFY_EMAIL }}
+        from: "Terraform Pipeline <${{ secrets.EMAIL_USERNAME }}>"
+        html_body: |
+          <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 650px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #ef4444, #dc2626); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0; font-size: 24px;">❌ Deployment Failed</h1>
+              <p style="color: #fecaca; margin: 8px 0 0 0; font-size: 14px;">Terraform OCI Pipeline — DEV Environment</p>
+            </div>
+            <div style="padding: 30px;">
+              <h2 style="color: #1f2937; margin-top: 0;">
