@@ -30,6 +30,7 @@ jobs:
        uses: hashicorp/setup-terraform@v3
        with:
          terraform_version: 1.5.7
+         terraform_wrapper: false
 
      - name: 🔑 Configure OCI API Key
        run: |
@@ -89,6 +90,7 @@ jobs:
        uses: hashicorp/setup-terraform@v3
        with:
          terraform_version: 1.5.7
+         terraform_wrapper: false
 
      - name: 🔑 Configure OCI API Key
        run: |
@@ -101,7 +103,12 @@ jobs:
 
      - name: 📝 Terraform Plan
        id: plan
-       run: terraform plan -no-color
+       run: |
+         set +e
+         terraform plan -no-color 2>&1 | tee /tmp/plan_output.txt
+         EXITCODE=$?
+         echo "exitcode=$EXITCODE" >> $GITHUB_OUTPUT
+         exit $EXITCODE
        continue-on-error: true
        env:
          TF_VAR_private_key_path: ~/.oci/oci_api_key.pem
@@ -109,6 +116,9 @@ jobs:
      - name: 📊 Plan Summary
        if: always()
        run: |
+         PLAN_OUTPUT=$(cat /tmp/plan_output.txt 2>/dev/null || echo "No output captured")
+         PLAN_SUMMARY=$(echo "$PLAN_OUTPUT" | grep -E "Plan:|No changes" || echo "Check logs")
+         
          echo "## 📝 Terraform Plan Results" >> $GITHUB_STEP_SUMMARY
          echo "" >> $GITHUB_STEP_SUMMARY
          echo "| 📋 Item | 📝 Details |" >> $GITHUB_STEP_SUMMARY
@@ -117,14 +127,15 @@ jobs:
          echo "| **🌿 Branch** | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
          echo "| **📌 Commit** | [\`$(echo ${{ github.sha }} | cut -c1-7)\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |" >> $GITHUB_STEP_SUMMARY
          echo "| **📅 Date** | \`$(TZ='Asia/Kolkata' date '+%Y-%m-%d %H:%M IST')\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **📝 Plan Status** | ${{ steps.plan.outcome == 'success' && '✅ Success — No errors' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+         echo "| **📝 Plan Status** | ${{ steps.plan.outcome == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+         echo "| **📊 Summary** | \`$PLAN_SUMMARY\` |" >> $GITHUB_STEP_SUMMARY
          echo "" >> $GITHUB_STEP_SUMMARY
          echo "---" >> $GITHUB_STEP_SUMMARY
          echo "" >> $GITHUB_STEP_SUMMARY
          echo "<details><summary>📋 Click to see full Terraform Plan output</summary>" >> $GITHUB_STEP_SUMMARY
          echo "" >> $GITHUB_STEP_SUMMARY
          echo '```hcl' >> $GITHUB_STEP_SUMMARY
-         echo "${{ steps.plan.outputs.stdout }}" >> $GITHUB_STEP_SUMMARY
+         echo "$PLAN_OUTPUT" >> $GITHUB_STEP_SUMMARY
          echo '```' >> $GITHUB_STEP_SUMMARY
          echo "" >> $GITHUB_STEP_SUMMARY
          echo "</details>" >> $GITHUB_STEP_SUMMARY
@@ -135,7 +146,13 @@ jobs:
        with:
          github-token: ${{ secrets.GITHUB_TOKEN }}
          script: |
-           const planOutput = `${{ steps.plan.outputs.stdout }}`;
+           const fs = require('fs');
+           let planOutput = '';
+           try {
+             planOutput = fs.readFileSync('/tmp/plan_output.txt', 'utf8');
+           } catch (e) {
+             planOutput = 'Plan output not available';
+           }
            const truncated = planOutput.length > 60000 
              ? planOutput.substring(0, 60000) + "\n\n... (truncated)" 
              : planOutput;
@@ -144,6 +161,7 @@ jobs:
            
            **🌿 Branch:** \`${{ github.head_ref }}\` → \`${{ github.base_ref }}\`
            **🧑 Author:** @${{ github.actor }}
+           **📅 Date:** \`${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST\`
            
            ---
            
@@ -214,6 +232,7 @@ jobs:
        uses: hashicorp/setup-terraform@v3
        with:
          terraform_version: 1.5.7
+         terraform_wrapper: false
 
      - name: 🔑 Configure OCI API Key
        run: |
@@ -226,7 +245,12 @@ jobs:
 
      - name: 🚀 Terraform Apply
        id: apply
-       run: terraform apply -auto-approve -no-color
+       run: |
+         set +e
+         terraform apply -auto-approve -no-color 2>&1 | tee /tmp/apply_output.txt
+         EXITCODE=$?
+         echo "exitcode=$EXITCODE" >> $GITHUB_OUTPUT
+         exit $EXITCODE
        env:
          TF_VAR_private_key_path: ~/.oci/oci_api_key.pem
 
@@ -234,32 +258,34 @@ jobs:
        id: parse
        if: always()
        run: |
-         # Extract resource changes from apply output
-         APPLY_OUTPUT="${{ steps.apply.outputs.stdout }}"
+         APPLY_OUTPUT=$(cat /tmp/apply_output.txt 2>/dev/null || echo "No output captured")
          
-         # Get the summary line (e.g., "Apply complete! Resources: 2 added, 1 changed, 0 destroyed.")
+         # Get summary line
          SUMMARY_LINE=$(echo "$APPLY_OUTPUT" | grep -E "Apply complete|No changes" || echo "Check logs for details")
          echo "summary=$SUMMARY_LINE" >> $GITHUB_OUTPUT
          
          # Extract created resources
-         CREATED=$(echo "$APPLY_OUTPUT" | grep -E "^\s*(#|oci_).*: Creating...|Creation complete" | grep -oP 'oci_\w+\.\w+' | sort -u || echo "None")
+         CREATED=$(echo "$APPLY_OUTPUT" | grep "Creation complete" | grep -oP 'oci_\w+\.\w+' | sort -u || true)
+         if [ -z "$CREATED" ]; then CREATED="None"; fi
          echo "created<<EOF" >> $GITHUB_OUTPUT
          echo "$CREATED" >> $GITHUB_OUTPUT
          echo "EOF" >> $GITHUB_OUTPUT
          
          # Extract updated resources
-         UPDATED=$(echo "$APPLY_OUTPUT" | grep -E "^\s*(#|oci_).*: Modifying...|Modifications complete" | grep -oP 'oci_\w+\.\w+' | sort -u || echo "None")
+         UPDATED=$(echo "$APPLY_OUTPUT" | grep "Modifications complete" | grep -oP 'oci_\w+\.\w+' | sort -u || true)
+         if [ -z "$UPDATED" ]; then UPDATED="None"; fi
          echo "updated<<EOF" >> $GITHUB_OUTPUT
          echo "$UPDATED" >> $GITHUB_OUTPUT
          echo "EOF" >> $GITHUB_OUTPUT
          
          # Extract destroyed resources
-         DESTROYED=$(echo "$APPLY_OUTPUT" | grep -E "^\s*(#|oci_).*: Destroying...|Destruction complete" | grep -oP 'oci_\w+\.\w+' | sort -u || echo "None")
+         DESTROYED=$(echo "$APPLY_OUTPUT" | grep "Destruction complete" | grep -oP 'oci_\w+\.\w+' | sort -u || true)
+         if [ -z "$DESTROYED" ]; then DESTROYED="None"; fi
          echo "destroyed<<EOF" >> $GITHUB_OUTPUT
          echo "$DESTROYED" >> $GITHUB_OUTPUT
          echo "EOF" >> $GITHUB_OUTPUT
          
-         # Get IST timestamp
+         # IST timestamp
          IST_TIME=$(TZ='Asia/Kolkata' date '+%Y-%m-%d %H:%M IST')
          echo "ist_time=$IST_TIME" >> $GITHUB_OUTPUT
 
@@ -268,42 +294,24 @@ jobs:
        run: |
          echo "## 🚀 Deployment Report" >> $GITHUB_STEP_SUMMARY
          echo "" >> $GITHUB_STEP_SUMMARY
-         echo "### 📋 Deployment Details" >> $GITHUB_STEP_SUMMARY
-         echo "" >> $GITHUB_STEP_SUMMARY
          echo "| 📋 Item | 📝 Details |" >> $GITHUB_STEP_SUMMARY
          echo "|---------|----------|" >> $GITHUB_STEP_SUMMARY
          echo "| **🌍 Environment** | \`DEV\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **☁️ Cloud** | Oracle Cloud Infrastructure (OCI) |" >> $GITHUB_STEP_SUMMARY
+         echo "| **☁️ Cloud** | Oracle Cloud (OCI) |" >> $GITHUB_STEP_SUMMARY
          echo "| **🧑 Deployed By** | \`${{ github.actor }}\` |" >> $GITHUB_STEP_SUMMARY
          echo "| **📌 Commit** | [\`$(echo ${{ github.sha }} | cut -c1-7)\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |" >> $GITHUB_STEP_SUMMARY
-         echo "| **📅 Date** | \`$(TZ='Asia/Kolkata' date '+%Y-%m-%d %H:%M IST')\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **🏷️ Status** | ${{ steps.apply.outcome == 'success' && '✅ **DEPLOYED SUCCESSFULLY**' || '❌ **DEPLOYMENT FAILED**' }} |" >> $GITHUB_STEP_SUMMARY
+         echo "| **📅 Date (IST)** | \`${{ steps.parse.outputs.ist_time }}\` |" >> $GITHUB_STEP_SUMMARY
+         echo "| **🏷️ Status** | ${{ steps.apply.outcome == 'success' && '✅ **DEPLOYED**' || '❌ **FAILED**' }} |" >> $GITHUB_STEP_SUMMARY
          echo "" >> $GITHUB_STEP_SUMMARY
-         echo "---" >> $GITHUB_STEP_SUMMARY
+         echo "### 📦 Resource Changes" >> $GITHUB_STEP_SUMMARY
          echo "" >> $GITHUB_STEP_SUMMARY
-         if [ "${{ steps.apply.outcome }}" == "success" ]; then
-           echo "### ✅ Infrastructure Deployed!" >> $GITHUB_STEP_SUMMARY
-           echo "" >> $GITHUB_STEP_SUMMARY
-           echo "> 🎉 All resources have been successfully deployed to the **DEV** environment." >> $GITHUB_STEP_SUMMARY
-           echo "" >> $GITHUB_STEP_SUMMARY
-           echo "<details><summary>📦 Apply Output</summary>" >> $GITHUB_STEP_SUMMARY
-           echo "" >> $GITHUB_STEP_SUMMARY
-           echo '```' >> $GITHUB_STEP_SUMMARY
-           echo "${{ steps.apply.outputs.stdout }}" >> $GITHUB_STEP_SUMMARY
-           echo '```' >> $GITHUB_STEP_SUMMARY
-           echo "</details>" >> $GITHUB_STEP_SUMMARY
-         else
-           echo "### ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
-           echo "" >> $GITHUB_STEP_SUMMARY
-           echo "> ⚠️ Terraform apply failed. Check the logs above for details." >> $GITHUB_STEP_SUMMARY
-           echo "" >> $GITHUB_STEP_SUMMARY
-           echo "<details><summary>🔴 Error Output</summary>" >> $GITHUB_STEP_SUMMARY
-           echo "" >> $GITHUB_STEP_SUMMARY
-           echo '```' >> $GITHUB_STEP_SUMMARY
-           echo "${{ steps.apply.outputs.stderr }}" >> $GITHUB_STEP_SUMMARY
-           echo '```' >> $GITHUB_STEP_SUMMARY
-           echo "</details>" >> $GITHUB_STEP_SUMMARY
-         fi
+         echo "| Action | Resources |" >> $GITHUB_STEP_SUMMARY
+         echo "|--------|-----------|" >> $GITHUB_STEP_SUMMARY
+         echo "| ➕ Created | \`${{ steps.parse.outputs.created }}\` |" >> $GITHUB_STEP_SUMMARY
+         echo "| 🔄 Updated | \`${{ steps.parse.outputs.updated }}\` |" >> $GITHUB_STEP_SUMMARY
+         echo "| 🗑️ Destroyed | \`${{ steps.parse.outputs.destroyed }}\` |" >> $GITHUB_STEP_SUMMARY
+         echo "" >> $GITHUB_STEP_SUMMARY
+         echo "> **Summary:** ${{ steps.parse.outputs.summary }}" >> $GITHUB_STEP_SUMMARY
 
      # ═══════════════════════════════════════════
      # 📧 Email Notification — Success
@@ -321,17 +329,12 @@ jobs:
          from: "Terraform Pipeline <${{ secrets.EMAIL_USERNAME }}>"
          html_body: |
            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 650px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden;">
-             
-             <!-- Header -->
              <div style="background: linear-gradient(135deg, #10b981, #059669); padding: 30px; text-align: center;">
                <h1 style="color: white; margin: 0; font-size: 24px;">✅ Deployment Successful</h1>
                <p style="color: #d1fae5; margin: 8px 0 0 0; font-size: 14px;">Terraform OCI Pipeline — DEV Environment</p>
              </div>
-             
-             <!-- Body -->
              <div style="padding: 30px;">
                <h2 style="color: #1f2937; margin-top: 0;">📋 Deployment Summary</h2>
-               
                <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
                  <tr style="border-bottom: 1px solid #f3f4f6;">
                    <td style="padding: 12px; font-weight: bold; color: #6b7280;">🌍 Environment</td>
@@ -362,11 +365,8 @@ jobs:
                    <td style="padding: 12px;"><span style="color: #059669; font-weight: bold; font-size: 16px;">✅ SUCCESS</span></td>
                  </tr>
                </table>
-
-               <!-- Resource Changes Section -->
                <h2 style="color: #1f2937; margin-top: 30px;">📦 Resource Changes</h2>
-               
-               <table style="width: 100%; border-collapse: collapse; margin: 20px 0; border: 1px solid #e5e7eb; border-radius: 8px;">
+               <table style="width: 100%; border-collapse: collapse; margin: 20px 0; border: 1px solid #e5e7eb;">
                  <thead>
                    <tr style="background: #f9fafb;">
                      <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">Action</th>
@@ -388,13 +388,10 @@ jobs:
                    </tr>
                  </tbody>
                </table>
-
                <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 16px; margin: 20px 0;">
                  <p style="color: #065f46; margin: 0; font-weight: bold;">📊 Summary</p>
                  <p style="color: #047857; margin: 8px 0 0 0;">${{ steps.parse.outputs.summary }}</p>
                </div>
-               
-               <!-- Action Button -->
                <div style="text-align: center; margin: 30px 0;">
                  <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" 
                     style="background: #2563eb; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">
@@ -402,8 +399,6 @@ jobs:
                  </a>
                </div>
              </div>
-             
-             <!-- Footer -->
              <div style="background: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
                <p style="color: #9ca3af; margin: 0; font-size: 12px;">
                  🤖 Auto-generated by GitHub Actions | Terraform OCI Pipeline | ${{ steps.parse.outputs.ist_time }}
@@ -427,17 +422,12 @@ jobs:
          from: "Terraform Pipeline <${{ secrets.EMAIL_USERNAME }}>"
          html_body: |
            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 650px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden;">
-             
-             <!-- Header -->
              <div style="background: linear-gradient(135deg, #ef4444, #dc2626); padding: 30px; text-align: center;">
                <h1 style="color: white; margin: 0; font-size: 24px;">❌ Deployment Failed</h1>
                <p style="color: #fecaca; margin: 8px 0 0 0; font-size: 14px;">Terraform OCI Pipeline — DEV Environment</p>
              </div>
-             
-             <!-- Body -->
              <div style="padding: 30px;">
                <h2 style="color: #1f2937; margin-top: 0;">⚠️ Failure Details</h2>
-               
                <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
                  <tr style="border-bottom: 1px solid #f3f4f6;">
                    <td style="padding: 12px; font-weight: bold; color: #6b7280;">🌍 Environment</td>
@@ -464,14 +454,20 @@ jobs:
                    <td style="padding: 12px;"><span style="color: #dc2626; font-weight: bold; font-size: 16px;">❌ FAILED</span></td>
                  </tr>
                </table>
-               
                <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 20px 0;">
                  <p style="color: #991b1b; margin: 0; font-weight: bold;">🔴 Action Required</p>
-                 <p style="color: #7f1d1d; margin: 8px 0 0 0;">Terraform apply failed. Please check the pipeline logs for error details and fix the issue.</p>
+                 <p style="color: #7f1d1d; margin: 8px 0 0 0;">Terraform apply failed. Please check the pipeline logs for error details.</p>
                </div>
-               
-               <!-- Action Button -->
                <div style="text-align: center; margin: 30px 0;">
                  <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" 
                     style="background: #dc2626; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">
-                   🔗 View Error
+                   🔗 View Error Logs
+                 </a>
+               </div>
+             </div>
+             <div style="background: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+               <p style="color: #9ca3af; margin: 0; font-size: 12px;">
+                 🤖 Auto-generated by GitHub Actions | Terraform OCI Pipeline | ${{ steps.parse.outputs.ist_time }}
+               </p>
+             </div>
+
