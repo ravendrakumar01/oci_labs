@@ -55,22 +55,38 @@ jobs:
      - name: Validation Summary
        if: always()
        run: |
-         echo "## Validation and Security Results" >> $GITHUB_STEP_SUMMARY
+         echo "# 🛡️ Validation & Security Report" >> $GITHUB_STEP_SUMMARY
          echo "" >> $GITHUB_STEP_SUMMARY
-         echo "| Check | Status | Details |" >> $GITHUB_STEP_SUMMARY
-         echo "|-------|--------|---------|" >> $GITHUB_STEP_SUMMARY
-         echo "| Format | ${{ steps.fmt.outcome == 'success' && 'Passed' || 'Needs formatting' }} | terraform fmt -check |" >> $GITHUB_STEP_SUMMARY
-         echo "| Validate | ${{ steps.validate.outcome == 'success' && 'Passed' || 'Failed' }} | terraform validate |" >> $GITHUB_STEP_SUMMARY
-         echo "| Security | Scanned | tfsec |" >> $GITHUB_STEP_SUMMARY
+         echo "> [!NOTE]" >> $GITHUB_STEP_SUMMARY
+         echo "> Pipeline validation completed for commit \`$(echo ${{ github.sha }} | cut -c1-7)\` on branch \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+         echo "" >> $GITHUB_STEP_SUMMARY
+         echo "## 📋 Quality Checks" >> $GITHUB_STEP_SUMMARY
+         echo "" >> $GITHUB_STEP_SUMMARY
+         echo "| # | Check | Status | Tool |" >> $GITHUB_STEP_SUMMARY
+         echo "|:-:|-------|:------:|------|" >> $GITHUB_STEP_SUMMARY
+         echo "| 1 | Code Formatting | ${{ steps.fmt.outcome == 'success' && '✅ Passed' || '⚠️ Warning' }} | \`terraform fmt\` |" >> $GITHUB_STEP_SUMMARY
+         echo "| 2 | Configuration Validation | ${{ steps.validate.outcome == 'success' && '✅ Passed' || '❌ Failed' }} | \`terraform validate\` |" >> $GITHUB_STEP_SUMMARY
+         echo "| 3 | Security Scanning | ✅ Completed | \`tfsec\` |" >> $GITHUB_STEP_SUMMARY
          echo "" >> $GITHUB_STEP_SUMMARY
          echo "---" >> $GITHUB_STEP_SUMMARY
          echo "" >> $GITHUB_STEP_SUMMARY
-         echo "| Info | Value |" >> $GITHUB_STEP_SUMMARY
-         echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
-         echo "| **Actor** | \`${{ github.actor }}\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **Branch** | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **Commit** | \`$(echo ${{ github.sha }} | cut -c1-7)\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **Date** | \`$(TZ='Asia/Kolkata' date '+%Y-%m-%d %H:%M IST')\` |" >> $GITHUB_STEP_SUMMARY
+         echo "## 🔍 Run Information" >> $GITHUB_STEP_SUMMARY
+         echo "" >> $GITHUB_STEP_SUMMARY
+         echo "| | Property | Value |" >> $GITHUB_STEP_SUMMARY
+         echo "|:-:|----------|-------|" >> $GITHUB_STEP_SUMMARY
+         echo "| 👤 | **Actor** | \`${{ github.actor }}\` |" >> $GITHUB_STEP_SUMMARY
+         echo "| 🌿 | **Branch** | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+         echo "| 📌 | **Commit** | [\`$(echo ${{ github.sha }} | cut -c1-7)\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |" >> $GITHUB_STEP_SUMMARY
+         echo "| 🕐 | **Date (IST)** | \`$(TZ='Asia/Kolkata' date '+%Y-%m-%d %H:%M IST')\` |" >> $GITHUB_STEP_SUMMARY
+         echo "| ☁️ | **Provider** | Oracle Cloud (OCI) |" >> $GITHUB_STEP_SUMMARY
+         echo "" >> $GITHUB_STEP_SUMMARY
+         if [ "${{ steps.fmt.outcome }}" != "success" ]; then
+           echo "> [!WARNING]" >> $GITHUB_STEP_SUMMARY
+           echo "> Code formatting issues detected. Run \`terraform fmt\` locally to fix." >> $GITHUB_STEP_SUMMARY
+         else
+           echo "> [!TIP]" >> $GITHUB_STEP_SUMMARY
+           echo "> All checks passed successfully. Code is ready for planning." >> $GITHUB_STEP_SUMMARY
+         fi
 
  plan:
    name: Terraform Plan
@@ -111,20 +127,46 @@ jobs:
        run: |
          PLAN_OUTPUT=$(cat /tmp/plan_output.txt 2>/dev/null || echo "No output captured")
          PLAN_SUMMARY=$(echo "$PLAN_OUTPUT" | grep -E "Plan:|No changes" | head -1 || echo "Check logs")
+         RESOURCES_COUNT=$(echo "$PLAN_OUTPUT" | grep -oP '\d+(?= to add)' | head -1 || true)
+         CHANGE_COUNT=$(echo "$PLAN_OUTPUT" | grep -oP '\d+(?= to change)' | head -1 || true)
+         DESTROY_COUNT=$(echo "$PLAN_OUTPUT" | grep -oP '\d+(?= to destroy)' | head -1 || true)
+         if [ -z "$RESOURCES_COUNT" ]; then RESOURCES_COUNT="0"; fi
+         if [ -z "$CHANGE_COUNT" ]; then CHANGE_COUNT="0"; fi
+         if [ -z "$DESTROY_COUNT" ]; then DESTROY_COUNT="0"; fi
 
-         echo "## Terraform Plan Results" >> $GITHUB_STEP_SUMMARY
+         echo "# 📝 Terraform Plan Results" >> $GITHUB_STEP_SUMMARY
          echo "" >> $GITHUB_STEP_SUMMARY
-         echo "| Item | Details |" >> $GITHUB_STEP_SUMMARY
-         echo "|------|---------|" >> $GITHUB_STEP_SUMMARY
-         echo "| **Triggered By** | \`${{ github.actor }}\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **Branch** | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **Commit** | \`$(echo ${{ github.sha }} | cut -c1-7)\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **Date** | \`$(TZ='Asia/Kolkata' date '+%Y-%m-%d %H:%M IST')\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **Plan Status** | ${{ steps.plan.outcome == 'success' && 'Success — No errors' || 'Failed' }} |" >> $GITHUB_STEP_SUMMARY
+         if [ "${{ steps.plan.outcome }}" == "success" ]; then
+           echo "> [!TIP]" >> $GITHUB_STEP_SUMMARY
+           echo "> Plan completed successfully with no errors." >> $GITHUB_STEP_SUMMARY
+         else
+           echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
+           echo "> Plan failed. Check the output below for errors." >> $GITHUB_STEP_SUMMARY
+         fi
+         echo "" >> $GITHUB_STEP_SUMMARY
+         echo "## 📊 Planned Changes" >> $GITHUB_STEP_SUMMARY
+         echo "" >> $GITHUB_STEP_SUMMARY
+         echo "| Action | Count | Indicator |" >> $GITHUB_STEP_SUMMARY
+         echo "|--------|:-----:|:---------:|" >> $GITHUB_STEP_SUMMARY
+         echo "| ➕ Resources to Add | **${RESOURCES_COUNT}** | $( [ "$RESOURCES_COUNT" != "0" ] && echo '🟢' || echo '⚪') |" >> $GITHUB_STEP_SUMMARY
+         echo "| 🔄 Resources to Change | **${CHANGE_COUNT}** | $( [ "$CHANGE_COUNT" != "0" ] && echo '🟡' || echo '⚪') |" >> $GITHUB_STEP_SUMMARY
+         echo "| 🗑️ Resources to Destroy | **${DESTROY_COUNT}** | $( [ "$DESTROY_COUNT" != "0" ] && echo '🔴' || echo '⚪') |" >> $GITHUB_STEP_SUMMARY
          echo "" >> $GITHUB_STEP_SUMMARY
          echo "---" >> $GITHUB_STEP_SUMMARY
          echo "" >> $GITHUB_STEP_SUMMARY
-         echo "<details><summary>Click to see full Terraform Plan output</summary>" >> $GITHUB_STEP_SUMMARY
+         echo "## 🔍 Run Details" >> $GITHUB_STEP_SUMMARY
+         echo "" >> $GITHUB_STEP_SUMMARY
+         echo "| | Property | Value |" >> $GITHUB_STEP_SUMMARY
+         echo "|:-:|----------|-------|" >> $GITHUB_STEP_SUMMARY
+         echo "| 👤 | **Triggered By** | \`${{ github.actor }}\` |" >> $GITHUB_STEP_SUMMARY
+         echo "| 🌿 | **Branch** | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+         echo "| 📌 | **Commit** | [\`$(echo ${{ github.sha }} | cut -c1-7)\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |" >> $GITHUB_STEP_SUMMARY
+         echo "| 🕐 | **Date (IST)** | \`$(TZ='Asia/Kolkata' date '+%Y-%m-%d %H:%M IST')\` |" >> $GITHUB_STEP_SUMMARY
+         echo "| 📝 | **Plan Status** | ${{ steps.plan.outcome == 'success' && '✅ **Success — No errors**' || '❌ **Failed**' }} |" >> $GITHUB_STEP_SUMMARY
+         echo "" >> $GITHUB_STEP_SUMMARY
+         echo "---" >> $GITHUB_STEP_SUMMARY
+         echo "" >> $GITHUB_STEP_SUMMARY
+         echo "<details><summary>📋 <strong>Click to see full Terraform Plan output</strong></summary>" >> $GITHUB_STEP_SUMMARY
          echo "" >> $GITHUB_STEP_SUMMARY
          echo '```hcl' >> $GITHUB_STEP_SUMMARY
          echo "$PLAN_OUTPUT" >> $GITHUB_STEP_SUMMARY
@@ -272,27 +314,46 @@ jobs:
        run: |
          APPLY_OUTPUT=$(cat /tmp/apply_output.txt 2>/dev/null || echo "No output captured")
 
-         echo "## Deployment Report" >> $GITHUB_STEP_SUMMARY
+         echo "# 🚀 Deployment Report" >> $GITHUB_STEP_SUMMARY
          echo "" >> $GITHUB_STEP_SUMMARY
-         echo "### Deployment Details" >> $GITHUB_STEP_SUMMARY
+         if [ "${{ steps.apply.outcome }}" == "success" ]; then
+           echo "> [!IMPORTANT]" >> $GITHUB_STEP_SUMMARY
+           echo "> Infrastructure has been successfully deployed to **DEV** environment." >> $GITHUB_STEP_SUMMARY
+         else
+           echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
+           echo "> Deployment to **DEV** environment has failed. Immediate attention required." >> $GITHUB_STEP_SUMMARY
+         fi
          echo "" >> $GITHUB_STEP_SUMMARY
-         echo "| Item | Details |" >> $GITHUB_STEP_SUMMARY
-         echo "|------|---------|" >> $GITHUB_STEP_SUMMARY
-         echo "| **Environment** | \`DEV\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **Cloud** | Oracle Cloud Infrastructure (OCI) |" >> $GITHUB_STEP_SUMMARY
-         echo "| **Deployed By** | \`${{ github.actor }}\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **Commit** | \`$(echo ${{ github.sha }} | cut -c1-7)\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **Date** | \`${{ steps.parse.outputs.ist_time }}\` |" >> $GITHUB_STEP_SUMMARY
-         echo "| **Status** | ${{ steps.apply.outcome == 'success' && '✅ DEPLOYED SUCCESSFULLY' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
+         echo "## 📋 Deployment Details" >> $GITHUB_STEP_SUMMARY
+         echo "" >> $GITHUB_STEP_SUMMARY
+         echo "| | Property | Value |" >> $GITHUB_STEP_SUMMARY
+         echo "|:-:|----------|-------|" >> $GITHUB_STEP_SUMMARY
+         echo "| 🌍 | **Environment** | \`DEV\` |" >> $GITHUB_STEP_SUMMARY
+         echo "| ☁️ | **Cloud** | Oracle Cloud Infrastructure (OCI) |" >> $GITHUB_STEP_SUMMARY
+         echo "| 👤 | **Deployed By** | \`${{ github.actor }}\` |" >> $GITHUB_STEP_SUMMARY
+         echo "| 📌 | **Commit** | [\`$(echo ${{ github.sha }} | cut -c1-7)\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |" >> $GITHUB_STEP_SUMMARY
+         echo "| 🌿 | **Branch** | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+         echo "| 🕐 | **Date (IST)** | \`${{ steps.parse.outputs.ist_time }}\` |" >> $GITHUB_STEP_SUMMARY
+         echo "| 🏷️ | **Status** | ${{ steps.apply.outcome == 'success' && '✅ **DEPLOYED SUCCESSFULLY**' || '❌ **DEPLOYMENT FAILED**' }} |" >> $GITHUB_STEP_SUMMARY
+         echo "" >> $GITHUB_STEP_SUMMARY
+         echo "---" >> $GITHUB_STEP_SUMMARY
+         echo "" >> $GITHUB_STEP_SUMMARY
+         echo "## 📦 Resource Changes" >> $GITHUB_STEP_SUMMARY
+         echo "" >> $GITHUB_STEP_SUMMARY
+         echo "| Action | Count | Indicator |" >> $GITHUB_STEP_SUMMARY
+         echo "|--------|:-----:|:---------:|" >> $GITHUB_STEP_SUMMARY
+         echo "| ➕ Created | **${{ steps.parse.outputs.added }}** | $( [ "${{ steps.parse.outputs.added }}" != "0" ] && echo '🟢' || echo '⚪') |" >> $GITHUB_STEP_SUMMARY
+         echo "| 🔄 Updated | **${{ steps.parse.outputs.changed }}** | $( [ "${{ steps.parse.outputs.changed }}" != "0" ] && echo '🟡' || echo '⚪') |" >> $GITHUB_STEP_SUMMARY
+         echo "| 🗑️ Destroyed | **${{ steps.parse.outputs.destroyed }}** | $( [ "${{ steps.parse.outputs.destroyed }}" != "0" ] && echo '🔴' || echo '⚪') |" >> $GITHUB_STEP_SUMMARY
          echo "" >> $GITHUB_STEP_SUMMARY
          echo "---" >> $GITHUB_STEP_SUMMARY
          echo "" >> $GITHUB_STEP_SUMMARY
          if [ "${{ steps.apply.outcome }}" == "success" ]; then
            echo "## ✅ Infrastructure Deployed!" >> $GITHUB_STEP_SUMMARY
            echo "" >> $GITHUB_STEP_SUMMARY
-           echo "> All resources have been successfully deployed to the **DEV** environment." >> $GITHUB_STEP_SUMMARY
+           echo "All resources have been successfully deployed to the **DEV** environment." >> $GITHUB_STEP_SUMMARY
            echo "" >> $GITHUB_STEP_SUMMARY
-           echo "<details><summary>Apply Output</summary>" >> $GITHUB_STEP_SUMMARY
+           echo "<details><summary>📄 <strong>Full Apply Output</strong></summary>" >> $GITHUB_STEP_SUMMARY
            echo "" >> $GITHUB_STEP_SUMMARY
            echo '```' >> $GITHUB_STEP_SUMMARY
            echo "$APPLY_OUTPUT" >> $GITHUB_STEP_SUMMARY
@@ -302,9 +363,10 @@ jobs:
          else
            echo "## ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
            echo "" >> $GITHUB_STEP_SUMMARY
-           echo "> Terraform apply failed. Check the logs above for details." >> $GITHUB_STEP_SUMMARY
+           echo "> [!WARNING]" >> $GITHUB_STEP_SUMMARY
+           echo "> Check the error output below and fix the issue before retrying." >> $GITHUB_STEP_SUMMARY
            echo "" >> $GITHUB_STEP_SUMMARY
-           echo "<details><summary>Error Output</summary>" >> $GITHUB_STEP_SUMMARY
+           echo "<details><summary>🔴 <strong>Error Output</strong></summary>" >> $GITHUB_STEP_SUMMARY
            echo "" >> $GITHUB_STEP_SUMMARY
            echo '```' >> $GITHUB_STEP_SUMMARY
            echo "$APPLY_OUTPUT" >> $GITHUB_STEP_SUMMARY
@@ -385,67 +447,5 @@ jobs:
                  </thead>
                  <tbody>
                    <tr style="border-bottom: 1px solid #f3f4f6;">
-                     <td style="padding: 12px; font-family: monospace; font-size: 13px;">${{ steps.parse.outputs.created_list || 'No resources created' }}</td>
-                     <td style="padding: 12px;"><span style="background: #d1fae5; color: #065f46; padding: 4px 10px; border-radius: 4px; font-weight: bold;">Created</span></td>
-                   </tr>
-                   <tr style="border-bottom: 1px solid #f3f4f6;">
-                     <td style="padding: 12px; font-family: monospace; font-size: 13px;">${{ steps.parse.outputs.updated_list || 'No resources updated' }}</td>
-                     <td style="padding: 12px;"><span style="background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-weight: bold;">Updated</span></td>
-                   </tr>
-                   <tr>
-                     <td style="padding: 12px; font-family: monospace; font-size: 13px;">${{ steps.parse.outputs.destroyed_list || 'No resources destroyed' }}</td>
-                     <td style="padding: 12px;"><span style="background: #fee2e2; color: #991b1b; padding: 4px 10px; border-radius: 4px; font-weight: bold;">Destroyed</span></td>
-                   </tr>
-                 </tbody>
-               </table>
-               <div style="text-align: center; margin: 30px 0;">
-                 <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" style="background: #2563eb; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">🔗 View Full Pipeline Logs</a>
-               </div>
-             </div>
-             <div style="background: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-               <p style="color: #9ca3af; margin: 0; font-size: 12px;">🤖 Auto-generated by GitHub Actions | Terraform OCI Pipeline | ${{ steps.parse.outputs.ist_time }}</p>
-             </div>
-           </div>
+                     <td style="padding: 12px; font-family: mon
 
-     - name: Send Email (Failure)
-       if: steps.apply.outcome == 'failure'
-       uses: dawidd6/action-send-mail@v3
-       with:
-         server_address: smtp.gmail.com
-         server_port: 587
-         username: ${{ secrets.EMAIL_USERNAME }}
-         password: ${{ secrets.EMAIL_PASSWORD }}
-         subject: "❌ Terraform FAILED — DEV | ${{ steps.parse.outputs.ist_time }}"
-         to: ${{ secrets.NOTIFY_EMAIL }}
-         from: "Terraform Pipeline <${{ secrets.EMAIL_USERNAME }}>"
-         html_body: |
-           <div style="font-family: Segoe UI, Arial, sans-serif; max-width: 650px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden;">
-             <div style="background: linear-gradient(135deg, #ef4444, #dc2626); padding: 30px; text-align: center;">
-               <h1 style="color: white; margin: 0; font-size: 24px;">❌ Deployment Failed</h1>
-               <p style="color: #fecaca; margin: 8px 0 0 0; font-size: 14px;">Terraform OCI Pipeline — DEV Environment</p>
-             </div>
-             <div style="padding: 30px;">
-               <h2 style="color: #1f2937; margin-top: 0;">⚠️ Failure Details</h2>
-               <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-                 <tr style="border-bottom: 1px solid #f3f4f6;">
-                   <td style="padding: 12px; font-weight: bold; color: #6b7280;">🌍 Environment</td>
-                   <td style="padding: 12px;"><span style="background: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 20px; font-weight: bold;">DEV</span></td>
-                 </tr>
-                 <tr style="border-bottom: 1px solid #f3f4f6;">
-                   <td style="padding: 12px; font-weight: bold; color: #6b7280;">👤 Triggered By</td>
-                   <td style="padding: 12px;">${{ github.actor }}</td>
-                 </tr>
-                 <tr style="border-bottom: 1px solid #f3f4f6;">
-                   <td style="padding: 12px; font-weight: bold; color: #6b7280;">📌 Commit</td>
-                   <td style="padding: 12px;"><code>${{ github.sha }}</code></td>
-                 </tr>
-                 <tr style="border-bottom: 1px solid #f3f4f6;">
-                   <td style="padding: 12px; font-weight: bold; color: #6b7280;">🌿 Branch</td>
-                   <td style="padding: 12px;">${{ github.ref_name }}</td>
-                 </tr>
-                 <tr style="border-bottom: 1px solid #f3f4f6;">
-                   <td style="padding: 12px; font-weight: bold; color: #6b7280;">📅 Date and Time</td>
-                   <td style="padding: 12px;"><strong>${{ steps.parse.outputs.ist_time }}</strong></td>
-                 </tr>
-                 <tr>
-                   <td style="
