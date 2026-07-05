@@ -170,4 +170,14 @@ resource "oci_core_security_list" "test_sl" {
     }
   }
 
+  ingress_security_rules {
+    source = "0.0.0.0/0"
+    protocol = "6"
+    tcp_options {
+      min = 8000
+      max = 8000
+
+    }
+  }
+
 }
