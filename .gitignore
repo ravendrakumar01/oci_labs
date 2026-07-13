@@ -13,3 +13,5 @@
 # --- One-time migration helpers (delete after migration) ---
 _migrate/
 migrate.ps1
+
+setenv.ps1

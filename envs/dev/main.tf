@@ -24,3 +24,25 @@ module "network" {
   enable_nat_gateway      = true
   ingress_tcp_ports       = [22,4000]
 }
+
+# envs/dev/main.tf  (module block ke niche)
+
+resource "oci_core_instance" "app" {
+  compartment_id      = module.network.compartment_id
+  availability_domain = "xxxx:AP-MUMBAI-1-AD-1"   # apne AD ka naam
+  shape               = "VM.Standard.E4.Flex"
+
+  shape_config {
+    ocpus         = 1
+    memory_in_gbs = 8
+  }
+
+  create_vnic_details {
+    subnet_id = module.network.public_subnet_id
+  }
+
+  source_details {
+    source_type = "image"
+    source_id   = "ocid1.image.oc1...."   # image OCID
+  }
+}
