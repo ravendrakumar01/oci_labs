@@ -9,3 +9,7 @@
 *.tfvars
 # --- Private keys / credentials ---
 *.pem
+
+# --- One-time migration helpers (delete after migration) ---
+_migrate/
+migrate.ps1
