@@ -20,7 +20,7 @@ module "network" {
   public_subnet_dns_label    = "prodsubnet"
 
   # Networking to be added later
-  enable_internet_gateway = false
-  enable_nat_gateway      = false
-  ingress_tcp_ports       = []
+  enable_internet_gateway = true
+  enable_nat_gateway      = true
+  ingress_tcp_ports       = [22]
 }
