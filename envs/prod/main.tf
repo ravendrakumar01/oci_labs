@@ -37,7 +37,7 @@ data "oci_core_images" "ol9" {
   compartment_id           = module.network.compartment_id
   operating_system         = "Oracle Linux"
   operating_system_version = "9"
-  shape                    = "VM.Standard.E4.Flex"
+  shape                    = "VM.Standard.A1.Flex" # Ampere ARM (aarch64) image
   sort_by                  = "TIMECREATED"
   sort_order               = "DESC"
 }
@@ -53,19 +53,16 @@ module "compute" {
 
   compartment_id = module.network.compartment_id
 
-  instances = {}
-
-  # Example — jab prod instance chahiye ho:
-  # instances = {
-  #   "prod-app-01" = {
-  #     availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
-  #     shape               = "VM.Standard.E4.Flex"
-  #     ocpus               = 2
-  #     memory_in_gbs       = 16
-  #     image_id            = data.oci_core_images.ol9.images[0].id
-  #     subnet_id           = module.network.public_subnet_id
-  #     assign_public_ip    = true
-  #     ssh_public_key      = file("~/.ssh/id_rsa.pub")
-  #   }
-  # }
+  instances = {
+    "prod-app-01" = {
+      availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
+      shape               = "VM.Standard.A1.Flex"
+      ocpus               = 1
+      memory_in_gbs       = 6
+      image_id            = data.oci_core_images.ol9.images[0].id
+      subnet_id           = module.network.public_subnet_id
+      assign_public_ip    = true
+      # ssh_public_key    = file("~/.ssh/id_rsa.pub")   # SSH access ke liye uncomment karo
+    }
+  }
 }
