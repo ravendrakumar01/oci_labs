@@ -37,7 +37,7 @@ data "oci_core_images" "ol9" {
   compartment_id           = module.network.compartment_id
   operating_system         = "Oracle Linux"
   operating_system_version = "9"
-  shape                    = "VM.Standard.E4.Flex"
+  shape                    = "VM.Standard.A1.Flex"
   sort_by                  = "TIMECREATED"
   sort_order               = "DESC"
 }
@@ -56,7 +56,7 @@ module "compute" {
   instances = {
     "dev-app-01" = {
       availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
-      shape               = "VM.Standard.E4.Flex"
+      shape               = "VM.Standard.A1.Flex"
       ocpus               = 1
       memory_in_gbs       = 8
       image_id            = data.oci_core_images.ol9.images[0].id
