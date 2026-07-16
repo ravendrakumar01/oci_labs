@@ -24,3 +24,48 @@ module "network" {
   enable_nat_gateway      = true
   ingress_tcp_ports       = [22]
 }
+
+# ------------------------------------------------------------
+#  Data sources: auto-lookup Availability Domain + latest image
+#  (read-only, no cost)
+# ------------------------------------------------------------
+data "oci_identity_availability_domains" "ads" {
+  compartment_id = var.tenancy_ocid
+}
+
+data "oci_core_images" "ol9" {
+  compartment_id           = module.network.compartment_id
+  operating_system         = "Oracle Linux"
+  operating_system_version = "9"
+  shape                    = "VM.Standard.E4.Flex"
+  sort_by                  = "TIMECREATED"
+  sort_order               = "DESC"
+}
+
+# ------------------------------------------------------------
+#  Compute instances (PROD)
+#  Abhi khaali (koi VM nahi banega). Banana ho to niche wale
+#  example ko instances = { ... } mein daalo aur push karo.
+#  PROD apply pe GitHub approval maanga jayega.
+# ------------------------------------------------------------
+module "compute" {
+  source = "../../modules/compute"
+
+  compartment_id = module.network.compartment_id
+
+  instances = {}
+
+  # Example — jab prod instance chahiye ho:
+  # instances = {
+  #   "prod-app-01" = {
+  #     availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
+  #     shape               = "VM.Standard.E4.Flex"
+  #     ocpus               = 2
+  #     memory_in_gbs       = 16
+  #     image_id            = data.oci_core_images.ol9.images[0].id
+  #     subnet_id           = module.network.public_subnet_id
+  #     assign_public_ip    = true
+  #     ssh_public_key      = file("~/.ssh/id_rsa.pub")
+  #   }
+  # }
+}

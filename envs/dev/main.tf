@@ -22,27 +22,47 @@ module "network" {
   # Networking to be added later
   enable_internet_gateway = true
   enable_nat_gateway      = true
-  ingress_tcp_ports       = [22,4000]
+  ingress_tcp_ports       = [22, 4000]
 }
 
-# envs/dev/main.tf  (module block ke niche)
+# ------------------------------------------------------------
+#  Data sources: auto-lookup Availability Domain + latest image
+#  (read-only, no cost)
+# ------------------------------------------------------------
+data "oci_identity_availability_domains" "ads" {
+  compartment_id = var.tenancy_ocid
+}
 
-resource "oci_core_instance" "app" {
-  compartment_id      = module.network.compartment_id
-  availability_domain = "xxxx:AP-MUMBAI-1-AD-1"   # apne AD ka naam
-  shape               = "VM.Standard.E4.Flex"
+data "oci_core_images" "ol9" {
+  compartment_id           = module.network.compartment_id
+  operating_system         = "Oracle Linux"
+  operating_system_version = "9"
+  shape                    = "VM.Standard.E4.Flex"
+  sort_by                  = "TIMECREATED"
+  sort_order               = "DESC"
+}
 
-  shape_config {
-    ocpus         = 1
-    memory_in_gbs = 8
-  }
+# ------------------------------------------------------------
+#  Compute instances
+#  Map ki har KEY = instance ka display name.
+#  Instance hatana ho to us entry ko delete kar do.
+#  Koi instance na banana ho to: instances = {}
+# ------------------------------------------------------------
+module "compute" {
+  source = "../../modules/compute"
 
-  create_vnic_details {
-    subnet_id = module.network.public_subnet_id
-  }
+  compartment_id = module.network.compartment_id
 
-  source_details {
-    source_type = "image"
-    source_id   = "ocid1.image.oc1...."   # image OCID
+  instances = {
+    "dev-app-01" = {
+      availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
+      shape               = "VM.Standard.E4.Flex"
+      ocpus               = 1
+      memory_in_gbs       = 8
+      image_id            = data.oci_core_images.ol9.images[0].id
+      subnet_id           = module.network.public_subnet_id
+      assign_public_ip    = true
+      # ssh_public_key    = file("~/.ssh/id_rsa.pub")   # SSH access ke liye uncomment karo
+    }
   }
 }
