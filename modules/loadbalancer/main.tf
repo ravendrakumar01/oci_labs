@@ -36,14 +36,14 @@ resource "oci_load_balancer_backend_set" "this" {
   }
 }
 
-# --- Backends (one per VM IP) ---
+# --- Backends (one per entry; keys are static names) ---
 resource "oci_load_balancer_backend" "this" {
-  for_each = toset(var.backend_ips)
+  for_each = var.backends
 
   load_balancer_id = oci_load_balancer_load_balancer.this.id
   backendset_name  = oci_load_balancer_backend_set.this.name
-  ip_address       = each.value
-  port             = var.backend_port
+  ip_address       = each.value.ip
+  port             = coalesce(each.value.port, var.backend_port)
 }
 
 # --- Listener (front-end) ---

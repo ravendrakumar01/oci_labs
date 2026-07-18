@@ -49,10 +49,17 @@ variable "backend_port" {
   default     = 80
 }
 
-variable "backend_ips" {
-  type        = list(string)
-  description = "List of backend VM private IPs."
-  default     = []
+variable "backends" {
+  description = <<-EOT
+    Map of backends. KEY = a static name (e.g. instance name).
+      - ip   : backend VM private IP (can be known-after-apply)
+      - port : optional per-backend port (defaults to backend_port)
+  EOT
+  type = map(object({
+    ip   = string
+    port = optional(number)
+  }))
+  default = {}
 }
 
 variable "health_check_protocol" {

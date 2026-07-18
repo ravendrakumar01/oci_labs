@@ -87,6 +87,7 @@ module "storage" {
     "dev-data-01" = {
       availability_domain   = data.oci_identity_availability_domains.ads.availability_domains[0].name
       size_in_gbs           = 50
+      attach                = true
       attach_to_instance_id = module.compute.instance_ids["dev-app-01"]
     }
   }
@@ -112,9 +113,11 @@ module "loadbalancer" {
   subnet_ids     = [module.network.public_subnet_id]
   is_private     = false
 
-  listener_port         = 80
-  backend_port          = 80
-  backend_ips           = [module.compute.private_ips["dev-app-01"]]
+  listener_port = 80
+  backend_port  = 80
+  backends = {
+    "dev-app-01" = { ip = module.compute.private_ips["dev-app-01"] }
+  }
   health_check_protocol = "HTTP"
   health_check_url      = "/"
 }

@@ -15,7 +15,8 @@ variable "block_volumes" {
     availability_domain   = string
     size_in_gbs           = optional(number, 50)
     vpus_per_gb           = optional(number, 10)
-    attach_to_instance_id = optional(string)
+    attach                = optional(bool, false) # true = attach to instance (static, known at plan)
+    attach_to_instance_id = optional(string)      # instance OCID (may be known only after apply)
   }))
   default = {}
 }

@@ -27,7 +27,7 @@ resource "oci_core_volume" "this" {
 
 # --- Attach volumes to instances (only those with attach_to_instance_id set) ---
 resource "oci_core_volume_attachment" "this" {
-  for_each = { for k, v in var.block_volumes : k => v if v.attach_to_instance_id != null }
+  for_each = { for k, v in var.block_volumes : k => v if v.attach }
 
   attachment_type = "paravirtualized"
   instance_id     = each.value.attach_to_instance_id
