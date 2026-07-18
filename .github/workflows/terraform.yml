@@ -18,6 +18,7 @@ env:
   # disables aws-chunked checksum encoding that OCI rejects (501 NotImplemented).
   AWS_REQUEST_CHECKSUM_CALCULATION: when_required
   AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+  TF_VAR_ssh_public_key: ${{ secrets.OCI_SSH_PUBLIC_KEY }}
   TF_VERSION: 1.15.6
 
 jobs:

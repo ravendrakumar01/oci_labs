@@ -70,7 +70,7 @@ module "compute" {
       image_id            = data.oci_core_images.ol9.images[0].id
       subnet_id           = module.network.public_subnet_id
       assign_public_ip    = true
-      # ssh_public_key    = file("~/.ssh/id_rsa.pub")   # SSH login ke liye uncomment karo
+      ssh_public_key      = var.ssh_public_key # SSH public key (via TF_VAR_ssh_public_key)
     }
   }
 }
