@@ -28,7 +28,7 @@ module "network" {
   #       apne office/home IP tak restrict karna best hai (e.g. "1.2.3.4/32").
   ingress_rules = [
     { protocol = "6", port = 22, source = "0.0.0.0/0", description = "SSH" },
-    { protocol = "6", port = 80, source = "0.0.0.0/0", description = "HTTP" },
+    { protocol = "6", port = 80, source = "0.0.0.0/0", description = "HTTP_80" },
     { protocol = "1", source = "0.0.0.0/0", description = "ICMP (ping)" },
   ]
 
