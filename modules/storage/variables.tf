@@ -3,6 +3,11 @@ variable "compartment_id" {
   description = "Compartment OCID where storage resources will be created."
 }
 
+variable "tenancy_ocid" {
+  type        = string
+  description = "Tenancy OCID — used to look up the Object Storage namespace (known at plan time)."
+}
+
 variable "block_volumes" {
   description = <<-EOT
     Map of block volumes. The map KEY = volume display name.

@@ -82,6 +82,7 @@ module "storage" {
   source = "../../modules/storage"
 
   compartment_id = module.network.compartment_id
+  tenancy_ocid   = var.tenancy_ocid
 
   block_volumes = {
     "dev-data-01" = {

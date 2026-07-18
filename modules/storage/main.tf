@@ -11,7 +11,7 @@ terraform {
 
 # Object Storage namespace is unique per tenancy; needed to create buckets.
 data "oci_objectstorage_namespace" "ns" {
-  compartment_id = var.compartment_id
+  compartment_id = var.tenancy_ocid
 }
 
 # --- Block Volumes ---
