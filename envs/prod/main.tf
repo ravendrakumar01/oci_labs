@@ -37,7 +37,7 @@ data "oci_core_images" "ol9" {
   compartment_id           = module.network.compartment_id
   operating_system         = "Oracle Linux"
   operating_system_version = "9"
-  shape                    = "VM.Standard.A1.Flex" # Ampere ARM (aarch64) image
+  shape                    = "VM.Standard.E2.1.Micro" # Always-Free x86 micro (separate capacity pool)
   sort_by                  = "TIMECREATED"
   sort_order               = "DESC"
 }
@@ -56,9 +56,7 @@ module "compute" {
   instances = {
     "prod-app-01" = {
       availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
-      shape               = "VM.Standard.A1.Flex"
-      ocpus               = 1
-      memory_in_gbs       = 6
+      shape               = "VM.Standard.E2.1.Micro" # fixed 1 OCPU / 1 GB (ocpus/memory below ignored)
       image_id            = data.oci_core_images.ol9.images[0].id
       subnet_id           = module.network.public_subnet_id
       assign_public_ip    = true
