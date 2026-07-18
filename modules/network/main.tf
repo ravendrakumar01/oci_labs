@@ -70,26 +70,59 @@ resource "oci_core_route_table" "private" {
   }
 }
 
-# --- Security List (only when ingress ports are provided) ---
+# --- Security List (created only when ingress rules are provided) ---
 resource "oci_core_security_list" "this" {
-  count          = length(var.ingress_tcp_ports) > 0 ? 1 : 0
+  count          = length(var.ingress_rules) > 0 ? 1 : 0
   compartment_id = oci_identity_compartment.this.id
   vcn_id         = oci_core_vcn.this.id
   display_name   = "${var.name_prefix}_SL"
 
-  egress_security_rules {
-    destination = "0.0.0.0/0"
-    protocol    = "all"
+  # Outbound rules
+  dynamic "egress_security_rules" {
+    for_each = var.egress_rules
+    content {
+      protocol    = egress_security_rules.value.protocol
+      destination = egress_security_rules.value.destination
+      description = egress_security_rules.value.description
+
+      dynamic "tcp_options" {
+        for_each = egress_security_rules.value.protocol == "6" && egress_security_rules.value.port != null ? [1] : []
+        content {
+          min = egress_security_rules.value.port
+          max = egress_security_rules.value.port
+        }
+      }
+      dynamic "udp_options" {
+        for_each = egress_security_rules.value.protocol == "17" && egress_security_rules.value.port != null ? [1] : []
+        content {
+          min = egress_security_rules.value.port
+          max = egress_security_rules.value.port
+        }
+      }
+    }
   }
 
+  # Inbound rules
   dynamic "ingress_security_rules" {
-    for_each = var.ingress_tcp_ports
+    for_each = var.ingress_rules
     content {
-      source   = "0.0.0.0/0"
-      protocol = "6" # TCP
-      tcp_options {
-        min = ingress_security_rules.value
-        max = ingress_security_rules.value
+      protocol    = ingress_security_rules.value.protocol
+      source      = ingress_security_rules.value.source
+      description = ingress_security_rules.value.description
+
+      dynamic "tcp_options" {
+        for_each = ingress_security_rules.value.protocol == "6" && ingress_security_rules.value.port != null ? [1] : []
+        content {
+          min = ingress_security_rules.value.port
+          max = ingress_security_rules.value.port
+        }
+      }
+      dynamic "udp_options" {
+        for_each = ingress_security_rules.value.protocol == "17" && ingress_security_rules.value.port != null ? [1] : []
+        content {
+          min = ingress_security_rules.value.port
+          max = ingress_security_rules.value.port
+        }
       }
     }
   }
@@ -105,7 +138,7 @@ resource "oci_core_subnet" "public" {
   dns_label      = coalesce(var.public_subnet_dns_label, "${lower(var.name_prefix)}pub")
 
   route_table_id             = var.enable_internet_gateway ? oci_core_route_table.public[0].id : null
-  security_list_ids          = length(var.ingress_tcp_ports) > 0 ? [oci_core_security_list.this[0].id] : null
+  security_list_ids          = length(var.ingress_rules) > 0 ? [oci_core_security_list.this[0].id] : null
   prohibit_public_ip_on_vnic = false
 }
 
@@ -119,6 +152,6 @@ resource "oci_core_subnet" "private" {
   dns_label      = coalesce(var.private_subnet_dns_label, "${lower(var.name_prefix)}priv")
 
   route_table_id             = var.enable_nat_gateway ? oci_core_route_table.private[0].id : null
-  security_list_ids          = length(var.ingress_tcp_ports) > 0 ? [oci_core_security_list.this[0].id] : null
+  security_list_ids          = length(var.ingress_rules) > 0 ? [oci_core_security_list.this[0].id] : null
   prohibit_public_ip_on_vnic = true
 }

@@ -77,8 +77,38 @@ variable "enable_nat_gateway" {
   default     = false
 }
 
-variable "ingress_tcp_ports" {
-  type        = list(number)
-  description = "List of TCP ports to allow inbound from 0.0.0.0/0. Empty means no custom security list is created."
-  default     = []
+# --- Security List rules ---
+# A security list is created ONLY when at least one ingress rule is defined.
+variable "ingress_rules" {
+  description = <<-EOT
+    Inbound (ingress) rules for the security list. Each rule:
+      - protocol    : "6"=TCP, "17"=UDP, "1"=ICMP, "all"=all (default "6")
+      - port        : single port (only for TCP/UDP); null = all ports
+      - source      : source CIDR (default "0.0.0.0/0" = anywhere)
+      - description : human-friendly note
+  EOT
+  type = list(object({
+    protocol    = optional(string, "6")
+    port        = optional(number)
+    source      = optional(string, "0.0.0.0/0")
+    description = optional(string, "")
+  }))
+  default = []
+}
+
+variable "egress_rules" {
+  description = <<-EOT
+    Outbound (egress) rules for the security list. Defaults to allow-all.
+      - protocol    : "6"=TCP, "17"=UDP, "1"=ICMP, "all"=all (default "all")
+      - port        : single port (only for TCP/UDP); null = all ports
+      - destination : destination CIDR (default "0.0.0.0/0")
+      - description : human-friendly note
+  EOT
+  type = list(object({
+    protocol    = optional(string, "all")
+    port        = optional(number)
+    destination = optional(string, "0.0.0.0/0")
+    description = optional(string, "")
+  }))
+  default = [{}]
 }
