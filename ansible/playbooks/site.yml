@@ -5,7 +5,7 @@
 #
 # Run on all servers:     ansible-playbook playbooks/site.yml
 # Run on ONE new VM:       ansible-playbook playbooks/site.yml --limit dev-app-01
-- name: Baseline configuration (all servers)
+- name: Baseline configuration (all-servers)
   hosts: all
   become: true
 
