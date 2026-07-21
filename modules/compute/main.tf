@@ -6,6 +6,29 @@ terraform {
       source  = "oracle/oci"
       version = ">= 5.0.0"
     }
+    tls = {
+      source  = "hashicorp/tls"
+      version = ">= 4.0.0"
+    }
+  }
+}
+
+# Generate a fresh SSH keypair for each instance that sets generate_ssh_key = true.
+# A new instance => a new keypair. Existing instances keep their key.
+resource "tls_private_key" "this" {
+  for_each  = { for k, v in var.instances : k => v if v.generate_ssh_key }
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+locals {
+  # Effective public key per instance:
+  #   - if generate_ssh_key => Terraform-generated public key
+  #   - else                => user-provided ssh_public_key (may be null)
+  ssh_keys = {
+    for k, v in var.instances : k => (
+      v.generate_ssh_key ? tls_private_key.this[k].public_key_openssh : v.ssh_public_key
+    )
   }
 }
 
@@ -40,8 +63,8 @@ resource "oci_core_instance" "this" {
     boot_volume_size_in_gbs = each.value.boot_volume_size_gbs
   }
 
-  metadata = each.value.ssh_public_key != null ? {
-    ssh_authorized_keys = each.value.ssh_public_key
+  metadata = local.ssh_keys[each.key] != null ? {
+    ssh_authorized_keys = trimspace(local.ssh_keys[each.key])
   } : {}
 
   # Shape/ocpus/memory changes (resize) are applied in-place or via reboot by OCI.

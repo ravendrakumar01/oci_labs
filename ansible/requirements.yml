@@ -1,0 +1,7 @@
+---
+# Collections used by the playbooks + dynamic inventory.
+# Install: ansible-galaxy collection install -r requirements.yml
+collections:
+  - name: ansible.posix       # firewalld, mount
+  - name: community.general   # filesystem
+  - name: oracle.oci          # OCI dynamic inventory plugin

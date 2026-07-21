@@ -27,6 +27,7 @@ variable "instances" {
     memory_in_gbs        = optional(number, 8)
     assign_public_ip     = optional(bool, false)
     ssh_public_key       = optional(string)
+    generate_ssh_key     = optional(bool, false) # true => Terraform generates a keypair for this VM
     boot_volume_size_gbs = optional(number)
     freeform_tags        = optional(map(string), {})
   }))

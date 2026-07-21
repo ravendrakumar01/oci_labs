@@ -37,3 +37,9 @@ output "lb_ip_addresses" {
   description = "Public IP(s) of the DEV load balancer."
   value       = module.loadbalancer.ip_addresses
 }
+
+output "instance_private_keys" {
+  description = "Terraform-generated SSH private keys per instance (sensitive)."
+  value       = module.compute.private_keys
+  sensitive   = true
+}
