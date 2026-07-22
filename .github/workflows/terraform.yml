@@ -465,3 +465,40 @@ jobs:
         run: |
           echo "Terraform apply failed for ${{ matrix.environment }}."
           exit 1
+
+  # ==========================================================
+  #  5) Sync SSH keys to your machine (self-hosted runner)
+  #     Runs on YOUR laptop so Terraform-generated private keys
+  #     are saved to ~/.ssh/<vm-name> automatically after deploy.
+  #     (Only runs when your self-hosted runner is online.)
+  # ==========================================================
+  sync-keys:
+    name: Sync SSH Keys (${{ matrix.environment }})
+    needs: [detect, apply]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.detect.outputs.environments != '[]'
+    runs-on: self-hosted
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: ${{ fromJson(needs.detect.outputs.environments) }}
+    defaults:
+      run:
+        working-directory: envs/${{ matrix.environment }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Save private keys to ~/.ssh
+        run: |
+          terraform output -json instance_private_keys > tf_keys.json 2>/dev/null || echo '{}' > tf_keys.json
+          python3 "$GITHUB_WORKSPACE/scripts/save_keys.py" tf_keys.json
+          rm -f tf_keys.json

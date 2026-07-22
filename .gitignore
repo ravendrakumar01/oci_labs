@@ -15,3 +15,6 @@ _migrate/
 migrate.ps1
 
 setenv.ps1
+
+# --- Local env var loader (contains secrets — never commit) ---
+setenv.ps1
