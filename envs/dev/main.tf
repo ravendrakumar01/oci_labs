@@ -96,7 +96,7 @@ module "storage" {
   block_volumes = {
     "dev-data-01" = {
       availability_domain   = data.oci_identity_availability_domains.ads.availability_domains[0].name
-      size_in_gbs           = 50
+      size_in_gbs           = 60
       attach                = true
       attach_to_instance_id = module.compute.instance_ids["dev-app-01"]
     }
