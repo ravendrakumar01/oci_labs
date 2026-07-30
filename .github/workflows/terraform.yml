@@ -50,6 +50,9 @@ jobs:
             test:
               - 'envs/test/**'
               - 'modules/**'
+            uat:
+              - 'envs/uat/**'
+              - 'modules/**'
 
       - name: Build Environment Matrix
         id: set
@@ -58,6 +61,7 @@ jobs:
           if [ "${{ steps.filter.outputs.dev }}" == "true" ]; then envs+=("dev"); fi
           if [ "${{ steps.filter.outputs.prod }}" == "true" ]; then envs+=("prod"); fi
           if [ "${{ steps.filter.outputs.test }}" == "true" ]; then envs+=("test"); fi
+          if [ "${{ steps.filter.outputs.uat }}" == "true" ]; then envs+=("uat"); fi
           if [ ${#envs[@]} -eq 0 ]; then
             echo "environments=[]" >> $GITHUB_OUTPUT
             echo "No environment changes detected."

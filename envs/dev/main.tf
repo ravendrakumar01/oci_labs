@@ -73,7 +73,7 @@ module "compute" {
       generate_ssh_key    = true # Terraform har naye VM ke liye nayi keypair banayega
     }
 
-  "dev-app-02" = {
+    "dev-app-02" = {
       availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
       shape               = "VM.Standard.E2.1.Micro"
       image_id            = data.oci_core_images.ol9.images[0].id
