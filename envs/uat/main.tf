@@ -22,9 +22,9 @@ module "network" {
   public_subnet_cidr      = "172.18.1.0/24"
   enable_internet_gateway = true
 
-  # private subnet + NAT Gateway (private VMs ko outbound internet)
+  # private subnet (NAT disabled: free-tier NAT limit + koi private VM nahi hai)
   private_subnet_cidr = "172.18.2.0/24"
-  enable_nat_gateway  = true
+  enable_nat_gateway  = false
 
   # Security List — inbound
   ingress_rules = [
@@ -76,7 +76,10 @@ module "compute" {
 }
 
 # ------------------------------------------------------------
-#  3) STORAGE: 50GB block volume (attached) + bucket
+#  3) STORAGE: bucket
+#  NOTE: 50GB block volume free-tier storage limit (~200GB total
+#  block+boot) ki wajah se filhaal hataya gaya hai. dev ka storage
+#  free karne ke baad "uat-data-01" block ko wapas add kar sakte ho.
 # ------------------------------------------------------------
 module "storage" {
   source = "../../modules/storage"
@@ -84,14 +87,14 @@ module "storage" {
   compartment_id = module.network.compartment_id
   tenancy_ocid   = var.tenancy_ocid
 
-  block_volumes = {
-    "uat-data-01" = {
-      availability_domain   = data.oci_identity_availability_domains.ads.availability_domains[0].name
-      size_in_gbs           = 70
-      attach                = true
-      attach_to_instance_id = module.compute.instance_ids["uat-app-01"]
-    }
-  }
+  # block_volumes = {
+  #   "uat-data-01" = {
+  #     availability_domain   = data.oci_identity_availability_domains.ads.availability_domains[0].name
+  #     size_in_gbs           = 50
+  #     attach                = true
+  #     attach_to_instance_id = module.compute.instance_ids["uat-app-01"]
+  #   }
+  # }
 
   buckets = {
     "uat-app-bucket" = {
