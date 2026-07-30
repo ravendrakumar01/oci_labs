@@ -221,7 +221,31 @@ jobs:
           echo "| 🔄 Change | **$CHG** |" >> $GITHUB_STEP_SUMMARY
           echo "| 🗑️ Destroy | **$DES** |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "<details><summary>📋 Full Plan Output</summary>" >> $GITHUB_STEP_SUMMARY
+
+          # Clear list of exactly which resources change (parsed from plan)
+          echo "## 📦 What will change" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          RES=$(echo "$PLAN_OUTPUT" | grep -E '^[[:space:]]*# .*(will be (created|destroyed|updated)|must be replaced)' | sed -E 's/^[[:space:]]*# //')
+          if [ -n "$RES" ]; then
+            echo "| Resource | Action |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
+            echo "$RES" | while IFS= read -r line; do
+              addr=$(echo "$line" | sed -E 's/ (will be|must be) .*//')
+              act=$(echo "$line" | sed -E 's/.* (will be|must be) //')
+              case "$act" in
+                created) act="🟢 create" ;;
+                destroyed) act="🔴 destroy" ;;
+                replaced) act="🟠 replace" ;;
+                "updated in-place") act="🟡 update" ;;
+              esac
+              echo "| \`$addr\` | $act |" >> $GITHUB_STEP_SUMMARY
+            done
+          else
+            echo "_No resource changes._" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "<details><summary>📋 Full Plan Output (raw)</summary>" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo '```hcl' >> $GITHUB_STEP_SUMMARY
           echo "$PLAN_OUTPUT" >> $GITHUB_STEP_SUMMARY
