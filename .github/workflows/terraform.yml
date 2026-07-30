@@ -395,6 +395,39 @@ jobs:
           echo "| 🔄 Updated | **${{ steps.parse.outputs.changed }}** |" >> $GITHUB_STEP_SUMMARY
           echo "| 🗑️ Destroyed | **${{ steps.parse.outputs.destroyed }}** |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Which resources actually changed (from apply output)
+          echo "## 📦 What changed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          DONE=$(echo "$APPLY_OUTPUT" | grep -E ': (Creation|Modifications|Destruction) complete')
+          if [ -n "$DONE" ]; then
+            echo "| Resource | Action |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
+            echo "$DONE" | while IFS= read -r line; do
+              addr=$(echo "$line" | sed -E 's/: (Creation|Modifications|Destruction) complete.*//')
+              if echo "$line" | grep -q 'Creation complete'; then act="🟢 created"
+              elif echo "$line" | grep -q 'Modifications complete'; then act="🟡 updated"
+              else act="🔴 destroyed"; fi
+              echo "| \`$addr\` | $act |" >> $GITHUB_STEP_SUMMARY
+            done
+          else
+            echo "_No resource changes._" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Before -> After detail (from the saved plan that was applied)
+          PLAN_TXT=$(cat plan_output.txt 2>/dev/null || echo "")
+          if [ -n "$PLAN_TXT" ]; then
+            echo "<details><summary>🔍 Before → After (planned diff)</summary>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```hcl' >> $GITHUB_STEP_SUMMARY
+            echo "$PLAN_TXT" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
           echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| 🌍 Environment | \`${{ matrix.environment }}\` |" >> $GITHUB_STEP_SUMMARY
